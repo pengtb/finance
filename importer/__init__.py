@@ -35,6 +35,7 @@ class Account:
     icon: str = "800"
     color: str = ""
     account_type: int = 1 # seperate account
+    comment: str = ""
 
     def assign_icon(self, source: str | None = None):
         """
@@ -104,6 +105,7 @@ class Account:
             "icon": self.icon,
             "color": self.color,
             "type": self.account_type,
+            "comment": self.comment,
         }
             
 class AccountImporter:

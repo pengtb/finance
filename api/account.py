@@ -21,6 +21,7 @@ class Account_API(Updater_API):
             category
             color
             icon
+            comment
         :return: Response
         """
         url = f"{self.base_url}/accounts/add.json"
@@ -50,6 +51,7 @@ class Account_API(Updater_API):
             category
             color
             icon
+            comment
         :return: Response
         """
         url = f"{self.base_url}/accounts/modify.json"
