@@ -1,3 +1,7 @@
+import pandas as pd
+import os
+import json
+        
 # account icons
 icon_mapping = {
     "stocks": "800",
@@ -126,4 +130,43 @@ class AccountImporter:
             account.assign_category()
             formatted.append(account)
         return formatted
+    
+    def update_info(self, accounts: list, update_info_fp: str):
+        """
+        Update account information using update-info-fp tsv file
+        """
+        # load update info
+        update_info_df = pd.read_table(update_info_fp, usecols=['code', 'value', 'name'])
+        update_info_df = update_info_df.loc[update_info_df.value!='---']
+        
+        # current account df
+        accounts_df = pd.DataFrame([account.to_dict() for account in accounts])
+        ## release json
+        accounts_df.loc[:, 'source'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['source'])
+        accounts_df.loc[:, 'amount'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['amount']).astype(float)
+        accounts_df.loc[:, 'code'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['code']).astype(int)
+        
+        # merge
+        merged = pd.merge(accounts_df.drop(columns=['name']), update_info_df, on='code', how='inner')
+        
+        # udpate balance
+        merged.loc[:, 'balance'] = (merged.loc[:, 'value'].astype(float) * merged.loc[:, 'amount'].astype(float) * 100).astype(int)
+        
+        # update balanceTime
+        ## modification time of update info file
+        merged.loc[:, 'balanceTime'] = int(os.path.getmtime(update_info_fp))
+        
+        # create updated accounts
+        updated_accounts = []
+        for _, row in merged.iterrows():
+            account = Account()
+            account.name = row["name"]
+            account.balanceTime = row["balanceTime"]
+            account.account_type = 1
+            account.balance = row["balance"]
+            account.currency = row["currency"]
+            account.comment = row[["code","amount"]].to_json()
+            updated_accounts.append(account)
+        
+        return updated_accounts
         

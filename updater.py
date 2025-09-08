@@ -1,5 +1,6 @@
 from api.account import Account_API
 from importer.eaccount import EAccountImporter
+from importer.alipay import AlipayImporter
 import argparse
 from tqdm import tqdm
 import pandas as pd
@@ -25,6 +26,10 @@ if __name__ == "__main__":
         # create importer
         if args.importer == "eaccount":
             importer = EAccountImporter()
+            query_accounts = importer.import_accounts(args.file, update_info=args.update_info)
+            
+        elif args.importer == "alipay":
+            importer = AlipayImporter()
             query_accounts = importer.import_accounts(args.file, update_info=args.update_info)
                 
         # add accounts
