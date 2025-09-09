@@ -131,13 +131,14 @@ class AccountImporter:
             formatted.append(account)
         return formatted
     
-    def update_info(self, accounts: list, update_info_fp: str):
+    def update_info(self, accounts: list, update_info_fp: str, strict: bool = False):
         """
-        Update account information using update-info-fp tsv file
+        Update account information using update-info-fp tsv file:
+        strict: only keep those with available values in update_info_df
         """
         # load update info
-        update_info_df = pd.read_table(update_info_fp, usecols=['code', 'value', 'name'])
-        update_info_df = update_info_df.loc[update_info_df.value!='---']
+        update_info_df = pd.read_table(update_info_fp, usecols=['code', 'value'])
+        if strict: update_info_df = update_info_df.loc[update_info_df.value!='---']
         
         # current account df
         accounts_df = pd.DataFrame([account.to_dict() for account in accounts])
@@ -145,9 +146,14 @@ class AccountImporter:
         accounts_df.loc[:, 'source'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['source'])
         accounts_df.loc[:, 'amount'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['amount']).astype(float)
         accounts_df.loc[:, 'code'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['code']).astype(int)
+        ## previous value
+        accounts_df.loc[:, 'prev_value'] = accounts_df.loc[:, 'balance'] / accounts_df.loc[:, 'amount']
         
         # merge
-        merged = pd.merge(accounts_df.drop(columns=['name']), update_info_df, on='code', how='inner')
+        merged = pd.merge(accounts_df, update_info_df, on='code', how='inner')
+        
+        # keep previous value if new value is not available
+        merged.loc[:, 'value'] = merged.loc[:, 'value'].where(merged.loc[:, 'value']!='---', merged.loc[:, 'prev_value'])
         
         # udpate balance
         merged.loc[:, 'balance'] = (merged.loc[:, 'value'].astype(float) * merged.loc[:, 'amount'].astype(float) * 100).astype(int)

@@ -10,7 +10,7 @@ def parse_args(cmdline=None):
     parser.add_argument("--file", type=str, help="Path to the input file")
     parser.add_argument("--action", type=str, help="Action to perform", choices=["add", "list", "delete", "modify"])
     parser.add_argument("--api", type=str, help="API to use", choices=["account"], default="account")
-    parser.add_argument("--importer", type=str, help="Importer to use", choices=["eaccount"], default="eaccount")
+    parser.add_argument("--importer", type=str, help="Importer to use", choices=["eaccount", "alipay"], default="eaccount")
     parser.add_argument("--update-info", action='store_true')
     args = parser.parse_args(cmdline)
     return args
@@ -35,7 +35,10 @@ if __name__ == "__main__":
         # add accounts
         if args.action == "add":
             for account in tqdm(query_accounts):
-                api.add_account(**account.to_dict())
+                response = api.add_account(**account.to_dict())
+                if response["success"] != True: 
+                    print(account.to_dict())
+                    raise Exception(response)
             print(f"Added {len(query_accounts)} accounts")
             
         # list & modify & delete accounts

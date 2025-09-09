@@ -22,15 +22,15 @@ class AlipayImporter(AccountImporter):
         # preprocess
         ## adjust columns
         raw_df = raw_df.drop(index=0).reset_index(drop=True)
-        raw_df.columns = ["idx", "trade_acocunt", "name", "code", "amount", "value", "balanceTime", "balance"]
+        raw_df.columns = ["idx", "trade_account", "name", "code", "amount", "value", "balanceTime", "balance"]
         ## subset
         raw_df.drop(columns=["idx", "trade_account", "value"])
         ## format
         raw_df["name"] = raw_df["name"].str.replace("\n", "")
         raw_df["code"] = raw_df["code"].astype(int)
         raw_df["amount"] = raw_df["amount"].astype(float)
-        raw_df["balance"] = raw_df["balance"].astype(float)
-        raw_df["balanceTime"] = raw_df["balanceTime"].apply(lambda x: time.mktime(time.strptime(x, "%Y%m%d")))
+        raw_df["balance"] = (raw_df["balance"].astype(float)*100).astype(int)
+        raw_df["balanceTime"] = raw_df["balanceTime"].apply(lambda x: time.mktime(time.strptime(x, "%Y%m%d"))).astype(int)
         ## add columns: currency, source
         raw_df["currency"] = "CNY"
         raw_df["source"] = "支付宝"
