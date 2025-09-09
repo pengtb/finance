@@ -4,6 +4,9 @@ import time
 from . import Crawler
 
 class FundCrawler(Crawler):
+    """
+    Fetch fund information from AkShare
+    """
     def crawl_info(self, save=True):
         """
         Crawl fund information: fund code, name, type & value (estimation)
