@@ -2,6 +2,9 @@ import imaplib
 import email.utils
 from email.header import decode_header
 import datetime
+import zipfile
+import os
+import re
 from . import Crawler
 
 EMAIL_SERVER = "imap.konojojo.icu"
@@ -13,7 +16,7 @@ class EmailCrawler(Crawler):
     """
     Fetch attachment from email using IMAP
     """
-    def crawl_info(self, save=True):
+    def crawl_info(self, from_addr="service@mail.alipay.com", attachment_fn_pattern=".*pdf"):
         """
         Crawl email attachment
         """
@@ -47,8 +50,8 @@ class EmailCrawler(Crawler):
                 if status != "OK":
                     continue
                 msg = email.message_from_bytes(msg_data[0][1])
-                from_addr = email.utils.parseaddr(msg["From"])[1]
-                if from_addr != "service@mail.alipay.com":
+                msg_from_addr = email.utils.parseaddr(msg["From"])[1]
+                if msg_from_addr != from_addr:
                     continue
                 date = email.utils.parsedate_to_datetime(msg["Date"])
                 if date.date() != datetime.date.today():
@@ -66,14 +69,23 @@ class EmailCrawler(Crawler):
                     decoded_parts = decode_header(filename)
                     filename = ''.join([str(part[0], part[1] or 'utf-8') for part in decoded_parts])
                     print(filename)
-                    if filename.lower().endswith(".pdf"):
-                        print(f"Found pdf attachment: {filename}")
+                    if re.search(attachment_fn_pattern, filename):
+                        print(f"Found matching attachment: {filename}")
+                        attachment_format = filename.split(".")[-1]
                         # save attachment
-                        if save:
-                            with open(self.save_fp, "wb") as f:
-                                f.write(part.get_payload(decode=True))
-                                print(f"Attachment saved to {self.save_fp}")
+                        with open(self.save_fp, "wb") as f:
+                            f.write(part.get_payload(decode=True))
+                            print(f"Attachment saved to {self.save_fp}")
                         break
+                    
+            # postprocess
+            ## extract zip attachment file
+            if attachment_format == "zip":
+                with zipfile.ZipFile(self.save_fp, "r") as zip_ref:
+                    zip_ref.extractall(os.path.dirname(self.save_fp))
+                    ## rename extracted file
+                    orig_filename = zip_ref.namelist()[0]
+                    os.rename(os.path.join(os.path.dirname(self.save_fp), orig_filename), self.save_fp.replace(".zip", ".xlsx"))
                             
             # logout
             mail.close()
@@ -88,6 +100,8 @@ class EmailCrawler(Crawler):
             raise e
         
 if __name__ == "__main__":
-    email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/alipay_account.pdf")
+    # email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/alipay_account.pdf")
+    email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/eaccount_account.zip")
     # email_crawler.schedule_crawling()
-    email_crawler.crawl_info()
+    # email_crawler.crawl_info()
+    email_crawler.crawl_info(from_addr="efund@chinaclear.com.cn", attachment_fn_pattern=".*zip")

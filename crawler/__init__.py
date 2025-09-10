@@ -14,7 +14,7 @@ class Crawler:
         self.max_retry = max_retry
         self.retry_interval = retry_interval
         
-    def crawl_info(self, save=True):
+    def crawl_info(self, **kwargs):
         raise NotImplementedError("crawl_info should be implemented")
     
     def schedule_crawling(self):
