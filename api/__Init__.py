@@ -6,7 +6,7 @@ API_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyVG9rZW5JZCI6IjIxMDcwODI4
 X_TIMEZONE_OFFSET=480 # GMT+8
 BASE_URL="https://finance.konojojo.icu/api/v1"
 
-class Updater_API:
+class BaseAPI:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({

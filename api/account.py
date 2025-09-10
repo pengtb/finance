@@ -1,11 +1,12 @@
-from . import Updater_API
+from . import BaseAPI
 
-class Account_API(Updater_API):
+class Account_API(BaseAPI):
     def __init__(self):
         super().__init__()
+        self.base_url = f"{self.base_url}/accounts"
         
     def list_accounts(self):
-        url = f"{self.base_url}/accounts/list.json"
+        url = f"{self.base_url}/list.json"
         response = self.request_data(url, method='GET')
         return response
 
@@ -24,7 +25,7 @@ class Account_API(Updater_API):
             comment
         :return: Response
         """
-        url = f"{self.base_url}/accounts/add.json"
+        url = f"{self.base_url}/add.json"
         response = self.request_data(url, method='POST', data=account_data)
         return response
     
@@ -34,7 +35,7 @@ class Account_API(Updater_API):
         :param id: Account ID
         :return: Response
         """
-        url = f"{self.base_url}/accounts/delete.json"
+        url = f"{self.base_url}/delete.json"
         response = self.request_data(url, method='POST', data={'Id': id})
         return response
     
@@ -54,6 +55,6 @@ class Account_API(Updater_API):
             comment
         :return: Response
         """
-        url = f"{self.base_url}/accounts/modify.json"
+        url = f"{self.base_url}/modify.json"
         response = self.request_data(url, method='POST', data=account_data)
         return response
