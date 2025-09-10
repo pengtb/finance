@@ -24,12 +24,12 @@ class FundCrawler(Crawler):
             raise Exception("Failed to update fund information")
         
         # merge
-        merged = pd.merge(fund_info, fund_value_estimation, on="基金代码", how="right")
+        merged = pd.merge(fund_info, fund_value_estimation, on="基金代码", how="left")
         # subset
         # value_colname = [colname for colname in merged.columns if colname.endswith("估算数据-估算值")][0]
         value_colname = [colname for colname in merged.columns if colname.endswith("单位净值")][-1]
         print(f"正在获取{value_colname}")
-        subset = merged.loc[:, ["基金代码", "基金名称", "基金类型", value_colname]]
+        subset = merged.loc[:, ["基金代码", "基金名称", "基金类型", value_colname]].fillna('---')
         subset.columns = ["code", "name", "type", "value"]
         
         # save
