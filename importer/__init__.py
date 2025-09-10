@@ -100,7 +100,7 @@ class Account:
         """
         Convert account to dict
         """
-        return {
+        account_dict = {
             "name": self.name,
             "currency": self.currency,
             "balance": self.balance,
@@ -111,6 +111,31 @@ class Account:
             "type": self.account_type,
             "comment": self.comment,
         }
+        return account_dict
+    
+class ParentAccount:
+    name: str
+    category: int = 7
+    icon: str = "800"
+    color: str = ""
+    account_type: int = 2 # parent account
+    subAccounts: list[Account] = []
+    currency: str = "---"
+    
+    def to_dict(self):
+        """
+        Convert account to dict
+        """
+        account_dict = {
+            "name": self.name,
+            "category": self.category,
+            "icon": self.icon,
+            "color": self.color,
+            "type": self.account_type,
+            "currency": self.currency,
+            "subAccounts": [subAccount.to_dict() for subAccount in self.subAccounts],
+        }
+        return account_dict
             
 class AccountImporter:
     def import_accounts(self, file_path: str):
