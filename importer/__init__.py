@@ -1,6 +1,9 @@
 import pandas as pd
 import os
 import json
+import asyncio
+import json
+from mcp_agent.core.fastagent import FastAgent
         
 # account icons
 icon_mapping = {
@@ -201,3 +204,69 @@ class AccountImporter:
         
         return updated_accounts
         
+class Transaction:
+    type: str = 1
+    categoryId: int = 0
+    time: int = 0
+    utcOffset: int = 0
+    sourceAccountId: str = ""
+    destinationAccountId: str = ""
+    sourceAmount: int = 0
+    destinationAmount: int = 0
+    tagIds: list[int] = []
+    comment: str = ""
+    # geoLocation: dict = {}
+    
+    def assign_categoryId(self, categoryid_description: str, description: str):
+        """
+        use llm to assign categoryId based on given discription dict
+        :param categoryid_description: categoryId description json built from transaction categories list API
+        :param description: transaction description json imported from file
+        """
+        # create prompt
+        prompt = f"""
+        交易描述: {description}
+        交易类别列表: {categoryid_description}
+        请为这笔交易分配一个类别ID（即id字段），直接返回该id，不需要解释。形式如123，可直接输入到int()函数。
+        """
+        
+        # create app & agent
+        fast = FastAgent("transaction", quiet=True)
+        @fast.agent(
+            name="category-assigner",
+            model="openai.gpt-4o-mini.medium",
+            instruction="你是一个交易分类器，根据交易描述和交易类别列表，为交易分配正确的类别ID。"
+        )
+        
+        # run agent
+        async def run_agent (prompt):
+            async with fast.run() as agent:
+                response = await agent(prompt)
+            return int(response)
+            
+        return asyncio.run(run_agent(prompt))
+    
+    def to_dict(self):
+        """
+        Convert transaction to dict
+        """
+        transaction_dict = {
+            "type": self.type,
+            "categoryId": self.categoryId,
+            "time": self.time,
+            "utcOffset": self.utcOffset,
+            "sourceAccountId": self.sourceAccountId,
+            "destinationAccountId": self.destinationAccountId,
+            "sourceAmount": self.sourceAmount,
+            "destinationAmount": self.destinationAmount,
+            "tagIds": self.tagIds,
+            "comment": self.comment,
+        }
+        return transaction_dict
+
+class TransactionImporter:
+    def import_transactions(self, file_path: str):
+        """
+        Import transactions from file & return a list of Transaction objects
+        """
+        raise NotImplementedError("import_transactions method not implemented")

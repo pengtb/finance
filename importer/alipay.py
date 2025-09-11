@@ -1,115 +1,91 @@
 import pandas as pd
 import time
-import pdfplumber
-from . import Account, ParentAccount, AccountImporter, icon_mapping, category_mapping, color_mapping
+import json
+from . import Transaction, TransactionImporter
+from api.transaction import Transaction_API
 
-class AlipayImporter(AccountImporter):
-    def import_accounts(self, file_path: str, update_info: bool = True, update_info_fp: str = 'datatables/fund_info.tsv'):
+class AlipayTransactionImporter(TransactionImporter):
+    def __init__(self):
+        # collect categoryids
+        ## collect current categoryids
+        api = Transaction_API()
+        response = api.list_transaction_categories()
+        ## flatten categoryids
+        categories = response["result"]
+        categories = categories["1"] + categories["2"] + categories["3"]
+        subcategories = [category["subCategories"] for category in categories]
+        subcategories = [subcategory for subcategory_list in subcategories for subcategory in subcategory_list]
+        ## only id & name (& parentId)
+        subcategories = [{
+            "id": subcategory["id"],
+            "name": subcategory["name"],
+            "parentId": subcategory["parentId"]
+        } for subcategory in subcategories]
+        categories = [{
+            "id": category["id"],
+            "name": category["name"]
+        } for category in categories]
+        ## merge using pandas df
+        subcategories_df = pd.DataFrame(subcategories)
+        categories_df = pd.DataFrame(categories)
+        merged_df = pd.merge(subcategories_df, 
+                             categories_df.rename(columns={"id":"parentId", "name":"parentName"}), 
+                             on='parentId', how='inner')
+        subcategories = list(merged_df.to_dict(orient="index").values())
+        
+        self.subcategories = subcategories
+    
+    def import_transactions(self, file_path: str):
         """
-        Import accounts from file
+        Import transactions from file & return a list of Transaction objects
         """
-        # read tables from pdf
-        with pdfplumber.open(file_path) as pdf:
-            tables = []
-            for page in pdf.pages:
-                table = page.extract_table()
-                if table:
-                    tables.append(table)
-            raw_df = pd.concat([pd.DataFrame(table) for table in tables], axis=0)
-            
+        # read table from csv
+        raw_df = pd.read_csv(file_path, skiprows=4, skipfooter=8, encoding='gbk', engine='python',
+                             usecols=[2,7,8,9,11,13,15]
+                            #  usecols=["交易创建时间", "交易对方", "商品名称", "金额（元）", 
+                            #           "交易状态", "成功退款（元）","资金状态"]
+                             )
+        
         # preprocess
-        ## adjust columns
-        raw_df = raw_df.drop(index=0).reset_index(drop=True)
-        raw_df.columns = ["idx", "trade_account", "name", "code", "amount", "value", "balanceTime", "balance"]
-        ## subset
-        raw_df.drop(columns=["idx", "trade_account", "value"])
-        ## format
-        raw_df["name"] = raw_df["name"].str.replace("\n", "")
-        raw_df["code"] = raw_df["code"].astype(int)
-        raw_df["amount"] = raw_df["amount"].astype(float)
-        raw_df["balance"] = (raw_df["balance"].astype(float)*100).astype(int)
-        raw_df["balanceTime"] = raw_df["balanceTime"].apply(lambda x: time.mktime(time.strptime(x, "%Y%m%d"))).astype(int)
-        ## add columns: currency, source
-        raw_df["currency"] = "CNY"
-        raw_df["source"] = "alipay"
+        ## remove white space
+        raw_df = raw_df.map(lambda x: x.strip() if isinstance(x, str) else x)
+        ## remove white space in column name
+        raw_df.columns = raw_df.columns.str.strip()
+        ## only success transaction
+        raw_df = raw_df[raw_df["交易状态"] != "交易关闭"].drop(columns=["交易状态"])
+        ## rename columns
+        raw_df = raw_df.rename(columns={
+            "交易创建时间": "time",
+            "交易对方": "payee",
+            "商品名称": "item",
+            "金额（元）": "amount",
+            "成功退款（元）": "refund",
+            "资金状态": "status",
+        })
+        ## convert time to timestamp
+        raw_df = raw_df[raw_df["time"]!=""]
+        raw_df["time"] = raw_df["time"].apply(lambda x: time.mktime(time.strptime(x, "%Y-%m-%d %H:%M:%S"))).astype(int)
+        ## format amount & refund
+        raw_df["amount"] = (raw_df["amount"].astype(float)*100).astype(int)
+        raw_df["refund"] = (raw_df["refund"].astype(float)*100).astype(int)
         
-        # create accounts
-        accounts = []
+        # init transactions
+        ## init categoryids
+        categories_description = json.dumps(self.subcategories, ensure_ascii=False)
+        ## init transactions list
+        transactions = []
         for _, row in raw_df.iterrows():
-            account = Account()
-            account.name = row["name"]
-            account.balanceTime = row["balanceTime"]
-            account.account_type = 1
-            account.balance = row["balance"]
-            account.currency = row["currency"]
-            account.comment = row[["code","amount","source"]].to_json()
-            accounts.append(account)
-            
-        # update account info
-        if update_info:
-            accounts = self.update_info(accounts, update_info_fp)
-            
-        # format accounts
-        accounts = self.format_accounts(accounts)
-        
-        # group accounts by name
-        accounts = self.group_accounts(accounts)
-        print(f"Imported {len(accounts)} accounts")
-        
-        return accounts
+            transaction = Transaction()
+            transaction.time = row["time"]
+            transaction.sourceAmount = row["amount"] - row["refund"]
+            transaction.comment = json.dumps(row[["payee", "item", "status"]].to_dict(), ensure_ascii=False)
+            transaction.categoryId = transaction.assign_categoryId(categories_description, 
+                                                                   transaction.comment)
+            transactions.append(transaction)
+            break
+        return transactions 
     
-    def group_accounts(self, accounts: list[Account]):
-        """
-        Group accounts by name suffix
-        todo: api to support subaccounts
-        """
-        # assign accounts to groups
-        d1_accounts = []
-        d7_accounts = []
-        d360_accounts = []
-        other_accounts = []
-        for account in accounts:
-            if "活钱+" in account.name:
-                account.category = category_mapping["savings"]
-                d1_accounts.append(account)
-            elif "7日" in account.name:
-                account.category = category_mapping["savings"]
-                d7_accounts.append(account)
-            elif "定活" in account.name:
-                account.category = category_mapping["investment"]
-                d360_accounts.append(account)
-            else:
-                other_accounts.append(account)
-                
-        # make subaccounts
-        d1_account = ParentAccount()
-        d1_account.name = "活钱+"
-        d1_account.account_type = 2
-        d1_account.currency = "---"
-        d1_account.icon = icon_mapping["savings"]
-        d1_account.color = color_mapping["deposit"]
-        d1_account.category = category_mapping["savings"]
-        d1_account.subAccounts = d1_accounts
-        
-        d7_account = ParentAccount()
-        d7_account.name = "7日理财+"
-        d7_account.account_type = 2
-        d7_account.currency = "---"
-        d7_account.icon = icon_mapping["bonds"]
-        d7_account.color = color_mapping["deposit"]
-        d7_account.category = category_mapping["savings"]
-        d7_account.subAccounts = d7_accounts
-        
-        d360_account = ParentAccount()
-        d360_account.name = "定活理财360天"
-        d360_account.account_type = 2
-        d360_account.currency = "---"
-        d360_account.icon = icon_mapping["bonds"]
-        d360_account.color = color_mapping["bonds"]
-        d360_account.category = category_mapping["investment"]
-        d360_account.subAccounts = d360_accounts
-                
-        grouped_accounts = [d1_account, d7_account, d360_account] + other_accounts
-        
-        return grouped_accounts
-    
+if __name__ == "__main__":
+    importer = AlipayTransactionImporter()
+    transactions = importer.import_transactions("D:\\netdisk\\nextcloud\\本地\\finance\\支付宝\\alipay_record_20250905_1745_1.csv")
+    print(transactions[0].to_dict())
