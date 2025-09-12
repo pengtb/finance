@@ -82,10 +82,11 @@ class AlipayTransactionImporter(TransactionImporter):
             transaction.categoryId = transaction.assign_categoryId(categories_description, 
                                                                    transaction.comment)
             transactions.append(transaction)
-            break
+            # break
         return transactions 
     
 if __name__ == "__main__":
     importer = AlipayTransactionImporter()
+    # pd.DataFrame(importer.subcategories).to_csv("./datatables/transaction_subcategories.tsv", sep='\t', index=False)
     transactions = importer.import_transactions("D:\\netdisk\\nextcloud\\本地\\finance\\支付宝\\alipay_record_20250905_1745_1.csv")
-    print(transactions[0].to_dict())
+    # print(transactions[0].to_dict())
