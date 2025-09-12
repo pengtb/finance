@@ -75,9 +75,11 @@ class AlipayTransactionImporter(TransactionImporter):
         ## init transactions list
         transactions = []
         for _, row in raw_df.iterrows():
+            if row["status"] == "冻结": 
+                continue
             transaction = Transaction()
             transaction.time = row["time"]
-            transaction.sourceAmount = row["amount"] - row["refund"]
+            transaction.sourceAmount = row["amount"]
             transaction.comment = json.dumps(row[["payee", "item", "status"]].to_dict(), ensure_ascii=False)
             transaction.categoryId = transaction.assign_categoryId(categories_description, 
                                                                    transaction.comment)

@@ -353,7 +353,7 @@ class Transaction:
             elif ("拼多多" in payee) or ("电源" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="家居电子网购", "id"].values[0]
         ### other fees
-            elif ("党费" in item) or ("拍照" in item) or ("北京大学" in item) or ("图片" in item) or ("便民服务" in item):
+            elif ("党费" in item) or ("拍照" in item) or ("大学" in item) or ("图片" in item) or ("便民服务" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="其他支出", "id"].values[0]
         ### credit card / service
             elif ("先享后付" in item) or ("白条" in item) or ("月付" in item):
@@ -368,9 +368,6 @@ class Transaction:
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="退款", "id"].values[0]
         if subcategory_id is not None: 
             return subcategory_id
-        else:
-            print(transaction_description)
-            return None
 
         # then by llm
         ## create prompt
