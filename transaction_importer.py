@@ -7,6 +7,8 @@ import pandas as pd
 def parse_args(cmdline=None):
     parser = argparse.ArgumentParser(description="ezBookkeeping Transaction Updater")
     parser.add_argument("--file", type=str, help="Path to the input file")
+    parser.add_argument("--rest-file", type=str, help="Path to the rest and not imported file")
+    parser.add_argument("--save-dir", type=str, help="Path to save account and transaction subcategories", default="./datatables")
     parser.add_argument("--action", type=str, help="Action to perform", choices=["add", "list", "delete", "modify", "list-category", "list-tag"])
     parser.add_argument("--importer", type=str, help="Importer to use", choices=["alipay"], default="alipay")
     args = parser.parse_args(cmdline)
@@ -25,10 +27,10 @@ if __name__ == "__main__":
     
     # create importer
     if args.importer == "alipay":
-        importer = AlipayTransactionImporter()
-        query_transactions = importer.import_transactions(args.file)
+        importer = AlipayTransactionImporter(args.save_dir)
+        query_transactions = importer.import_transactions(args.file, args.rest_file)
             
-    # add accounts
+    # add transaction
     if args.action == "add":
         for transaction in tqdm(query_transactions):
             response = api.add_transaction(**transaction.to_dict())

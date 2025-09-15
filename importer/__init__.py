@@ -510,7 +510,7 @@ class TransactionImporter:
         if save_dir is not None:
             os.makedirs(save_dir, exist_ok=True)
             self.subcategories.to_csv(os.path.join(save_dir, "transaction_subcategories.tsv"), sep='\t', index=False)
-            self.accounts.to_csv(os.path.join(save_dir, "transaction_accounts.tsv"), sep='\t', index=False)
+            self.accounts.to_csv(os.path.join(save_dir, "accounts.tsv"), sep='\t', index=False)
     
     def import_transactions(self, file_path: str):
         """
