@@ -4,6 +4,8 @@ import json
 import asyncio
 import json
 from mcp_agent.core.fastagent import FastAgent
+from api.transaction import Transaction_API
+from api.account import Account_API
         
 # account icons
 icon_mapping = {
@@ -219,7 +221,7 @@ class Transaction:
     
     def assign_categoryId(self, categoryid_description: str, transaction_description: str):
         """
-        use llm to assign categoryId based on given discription dict
+        use keywords & llm to assign categoryId based on given discription dict
         :param categoryid_description: categoryId description json built from transaction categories list API
         :param transaction_description: transaction description json imported from file
         """
@@ -239,9 +241,9 @@ class Transaction:
         if status == "资金转移":
             if ("网商银行" in payee) or ("余额宝" in payee) or ("蚂蚁财富" in payee) or ("黄金" in payee) or ("保险" in payee):
                 if ("转入" in item) or ("买入" in item) or ("转换" in item):
-                    subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资", "id"].values[0]
+                    subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资支出", "id"].values[0]
                 elif ("转出" in item) or ("卖出" in item):
-                    subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="赎回", "id"].values[0]
+                    subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资赎回", "id"].values[0]
             elif ("余额宝-转出到余额" in item) or ("余额宝-转出到银行卡" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="银行转账", "id"].values[0]
             elif ("自动还款-花呗" in item):
@@ -249,7 +251,7 @@ class Transaction:
         elif status == "已支出":
         ### investment
             if ("帮你投" in item) or ("余利宝" in item) or ("蚂蚁财富" in item):
-                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资", "id"].values[0]
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资支出", "id"].values[0]
         ### food
             elif ("肯德基" in payee) or ("麦当劳" in payee) or ("塔斯汀" in payee) or ("德克士" in payee) or ("萨莉亚" in item)\
                 or ("肯德基" in item) or ("麦当劳" in item) or ("塔斯汀" in item) or ("德克士" in item) or ("萨莉亚" in payee)\
@@ -363,7 +365,7 @@ class Transaction:
             if "余额宝" in item:
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="利息收入", "id"].values[0]
             elif "蚂蚁财富" in item:
-                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="赎回", "id"].values[0]
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资赎回", "id"].values[0]
             elif "退款" in item:
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="退款", "id"].values[0]
         if subcategory_id is not None: 
@@ -394,6 +396,59 @@ class Transaction:
         subcategory_id = asyncio.run(run_agent(prompt))
         return subcategory_id
     
+    def assign_accountId(self, accounts_df: pd.DataFrame, transaction_description: str, transaction_subcategory: str):
+        """
+        Assign accountId to transaction by hard coding
+        """
+        # parse transaction_description
+        transaction_des_json = json.loads(transaction_description)
+        payee = transaction_des_json["payee"]
+        item = transaction_des_json["item"]
+        status = transaction_des_json["status"]
+        # assign by subcategory
+        source_account_name = None
+        target_account_name = None
+        ## income or expense
+        if transaction_subcategory not in ["银行转账", "信用卡还款", "存款取款", "投资", "赎回",
+                                           "借入", "借出", "还款", "收债", 
+                                           "垫付支出", "报销", "其他转账"]:
+            source_account_name = "余额宝"
+            target_account_name = None
+        ## investment
+        else:
+            if transaction_subcategory == "银行转账":
+                if "余额宝-转出到余额" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = "支付宝余额"
+                elif "余额宝-转出到银行卡" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = payee ### like "招商银行"
+            elif transaction_subcategory == "信用卡还款":
+                if "自动还款-花呗" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = "花呗|信用购"
+                elif "先享后付" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = "饿了么先享后付"
+                elif "白条" in item: ### to check
+                    source_account_name = "余额宝"
+                    target_account_name = "京东白条"
+                elif "月付" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = "美团月付"
+        
+        # transform to account id
+        if source_account_name is not None:
+            source_account_id = accounts_df.loc[accounts_df["name"]==source_account_name, "id"].values[0]
+        else:
+            source_account_id = None
+        if target_account_name is not None:
+            target_account_id = accounts_df.loc[accounts_df["name"]==target_account_name, "id"].values[0]
+        else:
+            target_account_id = None
+        
+        return source_account_id, target_account_id
+    
     def to_dict(self):
         """
         Convert transaction to dict
@@ -413,6 +468,50 @@ class Transaction:
         return transaction_dict
 
 class TransactionImporter:
+    def __init__(self, save_dir: str | None = None):
+        # collect categoryids info
+        ## collect current categoryids
+        api = Transaction_API()
+        response = api.list_transaction_categories()
+        ## flatten categoryids
+        categories = response["result"]
+        categories = categories["1"] + categories["2"] + categories["3"]
+        subcategories = [category["subCategories"] for category in categories]
+        subcategories = [subcategory for subcategory_list in subcategories for subcategory in subcategory_list]
+        ## only id & name (& parentId)
+        subcategories = [{
+            "id": subcategory["id"],
+            "name": subcategory["name"],
+            "parentId": subcategory["parentId"]
+        } for subcategory in subcategories]
+        categories = [{
+            "id": category["id"],
+            "name": category["name"]
+        } for category in categories]
+        ## merge using pandas df
+        subcategories_df = pd.DataFrame(subcategories)
+        categories_df = pd.DataFrame(categories)
+        merged_df = pd.merge(subcategories_df, 
+                             categories_df.rename(columns={"id":"parentId", "name":"parentName"}), 
+                             on='parentId', how='inner')
+        
+        self.subcategories = merged_df # id, name, parentId, parentName
+        
+        # collect accounts info
+        ## collect current accounts
+        api = Account_API()
+        response = api.list_accounts()
+        accounts = response["result"]
+        accounts = pd.DataFrame(accounts).loc[:, ['id', 'name']]
+        
+        self.accounts = accounts # id, name
+        
+        # save
+        if save_dir is not None:
+            os.makedirs(save_dir, exist_ok=True)
+            self.subcategories.to_csv(os.path.join(save_dir, "transaction_subcategories.tsv"), sep='\t', index=False)
+            self.accounts.to_csv(os.path.join(save_dir, "transaction_accounts.tsv"), sep='\t', index=False)
+    
     def import_transactions(self, file_path: str):
         """
         Import transactions from file & return a list of Transaction objects

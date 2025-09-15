@@ -2,40 +2,12 @@ import pandas as pd
 import time
 import json
 from . import Transaction, TransactionImporter
-from api.transaction import Transaction_API
 
 class AlipayTransactionImporter(TransactionImporter):
-    def __init__(self):
-        # collect categoryids
-        ## collect current categoryids
-        api = Transaction_API()
-        response = api.list_transaction_categories()
-        ## flatten categoryids
-        categories = response["result"]
-        categories = categories["1"] + categories["2"] + categories["3"]
-        subcategories = [category["subCategories"] for category in categories]
-        subcategories = [subcategory for subcategory_list in subcategories for subcategory in subcategory_list]
-        ## only id & name (& parentId)
-        subcategories = [{
-            "id": subcategory["id"],
-            "name": subcategory["name"],
-            "parentId": subcategory["parentId"]
-        } for subcategory in subcategories]
-        categories = [{
-            "id": category["id"],
-            "name": category["name"]
-        } for category in categories]
-        ## merge using pandas df
-        subcategories_df = pd.DataFrame(subcategories)
-        categories_df = pd.DataFrame(categories)
-        merged_df = pd.merge(subcategories_df, 
-                             categories_df.rename(columns={"id":"parentId", "name":"parentName"}), 
-                             on='parentId', how='inner')
-        subcategories = list(merged_df.to_dict(orient="index").values())
-        
-        self.subcategories = subcategories
+    def __init__(self, save_dir: str | None = None):
+        super().__init__(save_dir)
     
-    def import_transactions(self, file_path: str):
+    def import_transactions(self, file_path: str, rest_file_path: str | None = None):
         """
         Import transactions from file & return a list of Transaction objects
         """
@@ -71,9 +43,11 @@ class AlipayTransactionImporter(TransactionImporter):
         
         # init transactions
         ## init categoryids
-        categories_description = json.dumps(self.subcategories, ensure_ascii=False)
+        subcategories = list(self.subcategories.to_dict(orient="index").values())
+        categories_description = json.dumps(subcategories, ensure_ascii=False)
         ## init transactions list
         transactions = []
+        ignored_rows = []
         for _, row in raw_df.iterrows():
             if row["status"] == "冻结": 
                 continue
@@ -81,14 +55,29 @@ class AlipayTransactionImporter(TransactionImporter):
             transaction.time = row["time"]
             transaction.sourceAmount = row["amount"]
             transaction.comment = json.dumps(row[["payee", "item", "status"]].to_dict(), ensure_ascii=False)
-            transaction.categoryId = transaction.assign_categoryId(categories_description, 
-                                                                   transaction.comment)
+            ## assign categoryId
+            transaction.categoryId = transaction.assign_categoryId(categories_description, transaction.comment)
+            transaction_subcategory = self.subcategories.loc[self.subcategories["id"]==transaction.categoryId, "name"].iloc[0]
+            ## assign accountId
+            sourceAccountId, targetAccountId = transaction.assign_accountId(self.accounts, transaction.comment, transaction_subcategory)
+            ### ignored
+            if (sourceAccountId is None) and (targetAccountId is None):
+                ignored_rows.append(row)
+                continue
+            ### others
+            transaction.sourceAccountId = sourceAccountId
+            transaction.targetAccountId = targetAccountId
             transactions.append(transaction)
-            # break
+            
+        # save ignored rows
+        if rest_file_path is not None:
+            pd.concat(ignored_rows).to_csv(rest_file_path, sep='\t', index=False)
+            
         return transactions 
     
 if __name__ == "__main__":
     importer = AlipayTransactionImporter()
-    # pd.DataFrame(importer.subcategories).to_csv("./datatables/transaction_subcategories.tsv", sep='\t', index=False)
-    transactions = importer.import_transactions("D:\\netdisk\\nextcloud\\本地\\finance\\支付宝\\alipay_record_20250905_1745_1.csv")
+    # print(importer.subcategories)
+    pd.DataFrame(importer.subcategories).to_csv("./datatables/transaction_subcategories.tsv", sep='\t', index=False)
+    # transactions = importer.import_transactions("D:\\netdisk\\nextcloud\\本地\\finance\\支付宝\\alipay_record_20250905_1745_1.csv")
     # print(transactions[0].to_dict())

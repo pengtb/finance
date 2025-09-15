@@ -12,6 +12,10 @@ def parse_args(cmdline=None):
     parser.add_argument("--importer", type=str, help="Importer to use", choices=["eaccount", "alipay"], default="eaccount")
     parser.add_argument("--update-info", action='store_true')
     args = parser.parse_args(cmdline)
+    
+    # no need for importer when action is list
+    if args.action == "list":
+        args.importer = None
     return args
 
 if __name__ == "__main__":
@@ -48,7 +52,7 @@ if __name__ == "__main__":
         
         # list accounts
         if (args.action == "list"):
-            print(result_df.loc[:, ['name', 'balance', 'currency']])
+            print(result_df.loc[:, ['id', 'name', 'balance', 'currency']])
             
         elif (args.action == "modify") or (args.action == "delete"):
             ## filter accounts according to query
