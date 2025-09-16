@@ -18,7 +18,7 @@ class BaseAPI:
         
     def request_data(self, url: str, method: str = "GET", data: dict = None):
         if method == "GET":
-            response = self.session.get(url, data=json.dumps(data))
+            response = self.session.get(url, params=data)
         elif method == "POST":
             response = self.session.post(url, data=json.dumps(data))
         else:

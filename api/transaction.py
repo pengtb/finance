@@ -28,7 +28,7 @@ class Transaction_API(BaseAPI):
         :return: Response
         """
         url = f"{self.base_url}/list.json"
-        response = self.request_data(url, method='GET', params=transaction_filters)
+        response = self.request_data(url, method='GET', data=transaction_filters)
         return response
 
     def add_transaction(self, **transaction_data):

@@ -469,6 +469,24 @@ class Transaction:
 
 class TransactionImporter:
     def __init__(self, save_dir: str | None = None):
+        # collect categories & accounts
+        self.subcategories = TransactionImporter.collect_categories() # id, name, parentId, parentName
+        self.accounts = TransactionImporter.collect_accounts() # id, name
+        
+        # save
+        if save_dir is not None:
+            os.makedirs(save_dir, exist_ok=True)
+            self.subcategories.to_csv(os.path.join(save_dir, "transaction_subcategories.tsv"), sep='\t', index=False)
+            self.accounts.to_csv(os.path.join(save_dir, "accounts.tsv"), sep='\t', index=False)
+    
+    def import_transactions(self, file_path: str):
+        """
+        Import transactions from file & return a list of Transaction objects
+        """
+        raise NotImplementedError("import_transactions method not implemented")
+    
+    @staticmethod
+    def collect_categories():
         # collect categoryids info
         ## collect current categoryids
         api = Transaction_API()
@@ -494,26 +512,14 @@ class TransactionImporter:
         merged_df = pd.merge(subcategories_df, 
                              categories_df.rename(columns={"id":"parentId", "name":"parentName"}), 
                              on='parentId', how='inner')
-        
-        self.subcategories = merged_df # id, name, parentId, parentName
-        
+        return merged_df
+    
+    @staticmethod
+    def collect_accounts():
         # collect accounts info
         ## collect current accounts
         api = Account_API()
         response = api.list_accounts()
         accounts = response["result"]
-        accounts = pd.DataFrame(accounts).loc[:, ['id', 'name']]
-        
-        self.accounts = accounts # id, name
-        
-        # save
-        if save_dir is not None:
-            os.makedirs(save_dir, exist_ok=True)
-            self.subcategories.to_csv(os.path.join(save_dir, "transaction_subcategories.tsv"), sep='\t', index=False)
-            self.accounts.to_csv(os.path.join(save_dir, "accounts.tsv"), sep='\t', index=False)
-    
-    def import_transactions(self, file_path: str):
-        """
-        Import transactions from file & return a list of Transaction objects
-        """
-        raise NotImplementedError("import_transactions method not implemented")
+        accounts_df = pd.DataFrame(accounts).loc[:, ['id', 'name']]
+        return accounts_df
