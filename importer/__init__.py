@@ -240,8 +240,11 @@ class Transaction:
         ### investment
         if status == "资金转移":
             if ("余额宝-转出到余额" in item) or ("余额宝-转出到银行卡" in item) or ("余额宝-转出到支付宝" in item) \
-                or ("余额宝-单次转入" in item) or ("余额宝-大额转入" in item):
-                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="银行转账", "id"].values[0]
+                or ("余利宝转出到支付宝" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="赎回", "id"].values[0]
+            elif ("余额宝-单次转入" in item) or ("余额宝-大额转入" in item) \
+                or ("支付宝转入到余利宝" in item) or ("余利宝-银行卡转入" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资", "id"].values[0]
             elif ("自动还款-花呗" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="信用卡还款", "id"].values[0]
             elif ("网商银行" in payee) or ("余额宝" in payee) or ("蚂蚁财富" in payee) or ("黄金" in payee) or ("保险" in payee):
@@ -414,23 +417,31 @@ class Transaction:
         if transaction_subcategory not in ["银行转账", "信用卡还款", "存款取款", "投资", "赎回",
                                            "借入", "借出", "还款", "收债", 
                                            "垫付支出", "报销", "其他转账"]:
-            if ("余利宝转出到支付宝" in item) or ("支付宝转入到余利宝" in item): ### 余利宝仅支持支付宝余额
-                source_account_name = "支付宝余额"
-                target_account_name = None
+            if ("余利宝转入" in item): ### 余利宝仅支持支付宝余额
+                pass ### 忽略余利宝转入，手动处理/在导入余利宝明细时处理
             else:
                 source_account_name = "余额宝"
                 target_account_name = None
         ## investment
         else:
-            if transaction_subcategory == "银行转账":
+            if transaction_subcategory == "赎回":
                 if "余额宝-转出到余额" in item:
                     source_account_name = "余额宝"
                     target_account_name = "支付宝余额"
                 elif "余额宝-转出到银行卡" in item:
                     source_account_name = "余额宝"
                     target_account_name = payee ### like "招商银行"
-                elif ("余额宝-大额转入" in item) or ("余额宝-单次转入" in item):
+                elif "余利宝转出到支付宝" in item:
+                    source_account_name = "余利宝"
+                    target_account_name = "支付宝余额"
+            elif transaction_subcategory == "投资":
+                if ("余额宝-大额转入" in item) or ("余额宝-单次转入" in item):
                     pass ### 忽略余额宝转入，手动处理/在导入银行账户明细时处理
+                elif "支付宝转入到余利宝" in item:
+                    source_account_name = "支付宝余额"
+                    target_account_name = "余利宝"
+                elif "余利宝-银行卡转入" in item:
+                    pass ### 忽略余利宝银行卡转入，手动处理/在导入余利宝明细时处理
             elif transaction_subcategory == "信用卡还款":
                 if "自动还款-花呗" in item:
                     source_account_name = "余额宝"
