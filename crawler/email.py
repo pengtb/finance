@@ -80,11 +80,19 @@ class EmailCrawler(Crawler):
                         # postprocess
                         ## extract zip attachment file
                         if attachment_format == "zip":
-                            with zipfile.ZipFile(self.save_fp, "r") as zip_ref:
-                                zip_ref.extractall(os.path.dirname(self.save_fp))
-                                ## rename extracted file
-                                orig_filename = zip_ref.namelist()[0]
-                                os.rename(os.path.join(os.path.dirname(self.save_fp), orig_filename), self.save_fp.replace(".zip", ".xlsx"))
+                            print(f"Extracting zip attachment: {self.save_fp}")
+                            print("请输入提取密码:")
+                            password = input()
+                            try:
+                                password = password.encode() if password else None
+                                with zipfile.ZipFile(self.save_fp, "r") as zip_ref:
+                                    zip_ref.extractall(os.path.dirname(self.save_fp), pwd=password) 
+                                    ## rename extracted file
+                                    orig_filename = zip_ref.namelist()[0]
+                                    os.rename(os.path.join(os.path.dirname(self.save_fp), orig_filename), self.save_fp.replace(".zip", ".xlsx"))
+                            except zipfile.BadZipFile:
+                                print("密码错误，跳过提取")
+                                continue
                         break
                             
             # logout

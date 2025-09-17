@@ -15,7 +15,7 @@ class AlipayFundImporter(AccountImporter):
                 table = page.extract_table()
                 if table:
                     tables.append(table)
-            raw_df = pd.concat([pd.DataFrame(table) for table in tables], axis=0)
+            raw_df = pd.concat([pd.DataFrame(table) for table in tables], axis=0, ignore_index=True)
             
         # preprocess
         ## adjust columns
