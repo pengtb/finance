@@ -207,15 +207,15 @@ class AccountImporter:
         return updated_accounts
         
 class Transaction:
-    type: str = 1
+    type: int = 2
     categoryId: int = 0
     time: int = 0
-    utcOffset: int = 0
+    utcOffset: int = 8 * 60 # GMT+8 in min
     sourceAccountId: str = ""
     destinationAccountId: str = ""
     sourceAmount: int = 0
     destinationAmount: int = 0
-    tagIds: list[int] = []
+    # tagIds: list[int] = []
     comment: str = ""
     # geoLocation: dict = {}
     
@@ -239,15 +239,17 @@ class Transaction:
         subcategory_id = None
         ### investment
         if status == "资金转移":
-            if ("网商银行" in payee) or ("余额宝" in payee) or ("蚂蚁财富" in payee) or ("黄金" in payee) or ("保险" in payee):
+            if ("余额宝-转出到余额" in item) or ("余额宝-转出到银行卡" in item) or ("余额宝-转出到支付宝" in item) \
+                or ("余额宝-单次转入" in item) or ("余额宝-大额转入" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="银行转账", "id"].values[0]
+            elif ("自动还款-花呗" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="信用卡还款", "id"].values[0]
+            elif ("网商银行" in payee) or ("余额宝" in payee) or ("蚂蚁财富" in payee) or ("黄金" in payee) or ("保险" in payee):
                 if ("转入" in item) or ("买入" in item) or ("转换" in item):
                     subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资支出", "id"].values[0]
                 elif ("转出" in item) or ("卖出" in item):
                     subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资赎回", "id"].values[0]
-            elif ("余额宝-转出到余额" in item) or ("余额宝-转出到银行卡" in item):
-                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="银行转账", "id"].values[0]
-            elif ("自动还款-花呗" in item):
-                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="信用卡还款", "id"].values[0]
+            
         elif status == "已支出":
         ### investment
             if ("帮你投" in item) or ("余利宝" in item) or ("蚂蚁财富" in item):
@@ -281,6 +283,9 @@ class Transaction:
         ### clothes
             elif ("衫" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="衣服", "id"].values[0]
+        ### public transport
+            elif ("互通卡" in item) or ("交运" in item) or ("交通" in item) or ("地铁" in item) or ("公交" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="公共交通", "id"].values[0]
         ### hospital
             elif ("医院" in payee) or ("医院" in item) or ("体检" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="检查治疗", "id"].values[0]
@@ -291,14 +296,14 @@ class Transaction:
             elif ("电影" in item) or ("观影" in item) or ("演唱会" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="电影演出", "id"].values[0]
         ### taxi
-            elif ("打车" in item):
+            elif ("打车" in item) or ("租车" in item) or ("电瓶车" in payee):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="打车租车", "id"].values[0]
         ### subscription
             elif ("连续" in item) or ("极速下载" in item) or (item == "PC 1 Month") \
                 or ("88VIP" in item) or ("吃货卡" in item) or ("会员" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="会员订阅", "id"].values[0]
         ### game
-            elif ("DL点数" in item) or ("Steam" in item) or ("哔哩哔哩会员购" in payee) \
+            elif ("DL点数" in item) or ("Steam" in item) or ("steam" in item) or ("哔哩哔哩会员购" in payee) \
                 or ("起点读书" in payee) or ("阅读" in payee) or ("漫画" in payee)\
                 or ("游戏" in item) or ("烧录卡" in item) or ("文创" in item) or ("扩展通行证" in item) or ("书币" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="玩具游戏", "id"].values[0]
@@ -309,11 +314,8 @@ class Transaction:
             elif ("邮寄" in item) or ("运费" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="快递费", "id"].values[0]
         ### travel
-            elif ("携程" in payee) or ("博物馆" in item):
+            elif ("携程" in payee) or ("博物馆" in item) or ("旅游" in item) or ("导览" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="旅游度假", "id"].values[0]
-        ### public transport
-            elif ("互通卡" in item) or ("交运" in item) or ("交通" in item) or ("地铁" in item) or ("公交" in item):
-                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="公共交通", "id"].values[0]
         ### private car fee
             elif ("停车场" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="私家车费用", "id"].values[0]
@@ -362,10 +364,10 @@ class Transaction:
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="信用卡还款", "id"].values[0]
         elif status == "已收入":
         ### investment
-            if "余额宝" in item:
-                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="利息收入", "id"].values[0]
-            elif "蚂蚁财富" in item:
+            if "卖出至余额宝" in item:
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资赎回", "id"].values[0]
+            elif ("收益发放" in item) or ("分红至余额宝" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="利息分红", "id"].values[0]
             elif "退款" in item:
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="退款", "id"].values[0]
         if subcategory_id is not None: 
@@ -376,7 +378,7 @@ class Transaction:
         prompt = f"""
         交易描述: {transaction_description}
         交易类别列表: {categoryid_description}
-        请为这笔交易分配一个类别ID（即id字段），直接返回该id，不需要解释。形式如123，可直接输入到int()函数。
+        请为这笔交易分配一个类别ID（即交易类别列表中的id字段），直接返回该id，不需要解释。形式如123，可直接输入到int()函数。
         """
         
         ## create app & agent
@@ -391,7 +393,7 @@ class Transaction:
         async def run_agent (prompt):
             async with fast.run() as agent:
                 response = await agent(prompt)
-            return int(response)
+            return response
             
         subcategory_id = asyncio.run(run_agent(prompt))
         return subcategory_id
@@ -412,8 +414,12 @@ class Transaction:
         if transaction_subcategory not in ["银行转账", "信用卡还款", "存款取款", "投资", "赎回",
                                            "借入", "借出", "还款", "收债", 
                                            "垫付支出", "报销", "其他转账"]:
-            source_account_name = "余额宝"
-            target_account_name = None
+            if ("余利宝转出到支付宝" in item) or ("支付宝转入到余利宝" in item): ### 余利宝仅支持支付宝余额
+                source_account_name = "支付宝余额"
+                target_account_name = None
+            else:
+                source_account_name = "余额宝"
+                target_account_name = None
         ## investment
         else:
             if transaction_subcategory == "银行转账":
@@ -423,6 +429,8 @@ class Transaction:
                 elif "余额宝-转出到银行卡" in item:
                     source_account_name = "余额宝"
                     target_account_name = payee ### like "招商银行"
+                elif ("余额宝-大额转入" in item) or ("余额宝-单次转入" in item):
+                    pass ### 忽略余额宝转入，手动处理/在导入银行账户明细时处理
             elif transaction_subcategory == "信用卡还款":
                 if "自动还款-花呗" in item:
                     source_account_name = "余额宝"
@@ -436,6 +444,10 @@ class Transaction:
                 elif "月付" in item:
                     source_account_name = "余额宝"
                     target_account_name = "美团月付"
+                else:
+                    pass
+            else:
+                pass
         
         # transform to account id
         if source_account_name is not None:
@@ -462,9 +474,12 @@ class Transaction:
             "destinationAccountId": self.destinationAccountId,
             "sourceAmount": self.sourceAmount,
             "destinationAmount": self.destinationAmount,
-            "tagIds": self.tagIds,
+            # "tagIds": self.tagIds,
             "comment": self.comment,
         }
+        if self.type != 4:
+            del transaction_dict["destinationAccountId"]
+            del transaction_dict["destinationAmount"]
         return transaction_dict
 
 class TransactionImporter:
@@ -493,8 +508,10 @@ class TransactionImporter:
         response = api.list_transaction_categories()
         ## flatten categoryids
         categories = response["result"]
-        categories = categories["1"] + categories["2"] + categories["3"]
-        subcategories = [category["subCategories"] for category in categories]
+        incomes = categories["1"]
+        expenses = categories["2"]
+        transfers = categories["3"]
+        subcategories = [category["subCategories"] for category in incomes + expenses + transfers]
         subcategories = [subcategory for subcategory_list in subcategories for subcategory in subcategory_list]
         ## only id & name (& parentId)
         subcategories = [{
@@ -502,16 +519,30 @@ class TransactionImporter:
             "name": subcategory["name"],
             "parentId": subcategory["parentId"]
         } for subcategory in subcategories]
-        categories = [{
-            "id": category["id"],
-            "name": category["name"]
-        } for category in categories]
+        incomes = [{
+            "parentId": category["id"],
+            "parentName": category["name"],
+            "type": 2,
+            "typeDesc": "收入",
+        } for category in incomes]
+        expenses = [{
+            "parentId": category["id"],
+            "parentName": category["name"],
+            "type": 3,
+            "typeDesc": "支出",
+        } for category in expenses]
+        transfers = [{
+            "parentId": category["id"],
+            "parentName": category["name"],
+            "type": 4,
+            "typeDesc": "转账",
+        } for category in transfers]
         ## merge using pandas df
         subcategories_df = pd.DataFrame(subcategories)
-        categories_df = pd.DataFrame(categories)
+        categories_df = pd.DataFrame(incomes + expenses + transfers)
         merged_df = pd.merge(subcategories_df, 
-                             categories_df.rename(columns={"id":"parentId", "name":"parentName"}), 
-                             on='parentId', how='inner')
+                             categories_df, 
+                             on='parentId', how='inner').reset_index(drop=True)
         return merged_df
     
     @staticmethod
@@ -521,5 +552,5 @@ class TransactionImporter:
         api = Account_API()
         response = api.list_accounts()
         accounts = response["result"]
-        accounts_df = pd.DataFrame(accounts).loc[:, ['id', 'name']]
+        accounts_df = pd.DataFrame(accounts).loc[:, ['id', 'name']].reset_index(drop=True)
         return accounts_df

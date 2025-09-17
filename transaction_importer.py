@@ -9,6 +9,7 @@ import pandas as pd
 def parse_args(cmdline=None):
     parser = argparse.ArgumentParser(description="ezBookkeeping Transaction Updater")
     parser.add_argument("--action", type=str, help="Action to perform", choices=["add", "list", "delete", "modify", "list-category", "list-tag"])
+    parser.add_argument("--dry-run", action="store_true", help="Dry run, do not actually add, modify or delete transactions")
     args = parser.parse_known_args(cmdline)[0]
         
     # extra options for add
@@ -45,6 +46,9 @@ if __name__ == "__main__":
             query_transactions = importer.import_transactions(args.file, args.rest_file)
         ## import transactions
         for transaction in tqdm(query_transactions):
+            if args.dry_run:
+                print(transaction.to_dict())
+                continue
             response = api.add_transaction(**transaction.to_dict())
             if response["success"] != True: 
                 print(transaction.to_dict())
@@ -66,18 +70,21 @@ if __name__ == "__main__":
             categories_df = categories_df[categories_df["name"].isin(args.categories.split(","))]
             transaction_filters["category_ids"] = ",".join(categories_df["id"].astype(str).tolist())
         ## request transactions
-        response = api.list_transactions(**transaction_filters)
+        if args.dry_run:
+            print(transaction_filters)
+        else:
+            response = api.list_transactions(**transaction_filters)
         ## convert to dataframe
-        if response["success"] != True: 
-            raise Exception(response)
-        result = response['result']["items"]
-        result_df = pd.DataFrame(result)
+            if response["success"] != True: 
+                raise Exception(response)
+            result = response['result']["items"]
+            result_df = pd.DataFrame(result)
         
         # list accounts
-        pd.set_option('display.max_columns', None)
-        print(result_df.loc[:, ["id", "type", "time", 
-                                'sourceAccount', 'destinationAccount',
-                                'sourceAmount']])
+            pd.set_option('display.max_columns', None)
+            print(result_df.loc[:, ["id", "type", "time", 
+                                    'sourceAccount', 'destinationAccount',
+                                    'sourceAmount']])
             
     elif args.action == "list-category":
         category_df = TransactionImporter.collect_categories()
@@ -88,7 +95,10 @@ if __name__ == "__main__":
         print(response)
         
     elif args.action == "delete":
-        response = api.delete_transaction(args.id)
-        if response["success"] != True: 
-            raise Exception(response)
-        print(f"Deleted transaction {args.id}")
+        if args.dry_run:
+            print(f"Delete transaction {args.id}")
+        else:
+            response = api.delete_transaction(args.id)
+            if response["success"] != True: 
+                raise Exception(response)
+            print(f"Deleted transaction {args.id}")

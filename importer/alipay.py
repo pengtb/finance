@@ -24,7 +24,7 @@ class AlipayTransactionImporter(TransactionImporter):
         ## remove white space in column name
         raw_df.columns = raw_df.columns.str.strip()
         ## only success transaction
-        raw_df = raw_df[raw_df["交易状态"] != "交易关闭"].drop(columns=["交易状态"])
+        raw_df = raw_df[raw_df["交易状态"].isin(["交易成功", "交易关闭"])].drop(columns=["交易状态"])
         ## rename columns
         raw_df = raw_df.rename(columns={
             "交易创建时间": "time",
@@ -54,23 +54,29 @@ class AlipayTransactionImporter(TransactionImporter):
             transaction = Transaction()
             transaction.time = row["time"]
             transaction.sourceAmount = row["amount"]
+            transaction.destinationAmount = row["amount"]
             transaction.comment = json.dumps(row[["payee", "item", "status"]].to_dict(), ensure_ascii=False)
             ## assign categoryId
             transaction.categoryId = transaction.assign_categoryId(categories_description, transaction.comment)
-            transaction_subcategory = self.subcategories.loc[self.subcategories["id"]==transaction.categoryId, "name"].iloc[0]
-            ## assign accountId
-            sourceAccountId, targetAccountId = transaction.assign_accountId(self.accounts, transaction.comment, transaction_subcategory)
-            ### ignored
-            if (sourceAccountId is None) and (targetAccountId is None):
+            if transaction.categoryId not in self.subcategories["id"].values:
+                print(f"Transaction {transaction.to_dict()} with subcategory unassigned.")
                 ignored_rows.append(row)
                 continue
-            ### others
+            transaction_subcategory = self.subcategories.loc[self.subcategories["id"]==transaction.categoryId, "name"].iloc[0]
+            ## assign type
+            transaction.type = int(self.subcategories.loc[self.subcategories["id"]==transaction.categoryId, "type"].iloc[0])
+            ## assign accountId
+            sourceAccountId, destinationAccountId = transaction.assign_accountId(self.accounts, transaction.comment, transaction_subcategory)
+            if (sourceAccountId is None) and (destinationAccountId is None):
+                ignored_rows.append(row)
+                continue
             transaction.sourceAccountId = sourceAccountId
-            transaction.targetAccountId = targetAccountId
+            transaction.destinationAccountId = destinationAccountId
+            ## others
             transactions.append(transaction)
             
         # save ignored rows
-        if rest_file_path is not None:
+        if (rest_file_path is not None) and (len(ignored_rows) > 0):
             pd.concat(ignored_rows).to_csv(rest_file_path, sep='\t', index=False)
             
         return transactions 
