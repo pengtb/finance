@@ -76,16 +76,16 @@ class EmailCrawler(Crawler):
                         with open(self.save_fp, "wb") as f:
                             f.write(part.get_payload(decode=True))
                             print(f"Attachment saved to {self.save_fp}")
-                        break
                     
-            # postprocess
-            ## extract zip attachment file
-            if attachment_format == "zip":
-                with zipfile.ZipFile(self.save_fp, "r") as zip_ref:
-                    zip_ref.extractall(os.path.dirname(self.save_fp))
-                    ## rename extracted file
-                    orig_filename = zip_ref.namelist()[0]
-                    os.rename(os.path.join(os.path.dirname(self.save_fp), orig_filename), self.save_fp.replace(".zip", ".xlsx"))
+                        # postprocess
+                        ## extract zip attachment file
+                        if attachment_format == "zip":
+                            with zipfile.ZipFile(self.save_fp, "r") as zip_ref:
+                                zip_ref.extractall(os.path.dirname(self.save_fp))
+                                ## rename extracted file
+                                orig_filename = zip_ref.namelist()[0]
+                                os.rename(os.path.join(os.path.dirname(self.save_fp), orig_filename), self.save_fp.replace(".zip", ".xlsx"))
+                        break
                             
             # logout
             mail.close()
@@ -101,7 +101,9 @@ class EmailCrawler(Crawler):
         
 if __name__ == "__main__":
     # email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/alipay_account.pdf")
-    email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/eaccount_account.zip")
+    # email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/eaccount_account.zip")
+    email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/yulibao_account.xlsx")
     # email_crawler.schedule_crawling()
     # email_crawler.crawl_info()
-    email_crawler.crawl_info(from_addr="efund@chinaclear.com.cn", attachment_fn_pattern=".*zip")
+    # email_crawler.crawl_info(from_addr="efund@chinaclear.com.cn", attachment_fn_pattern=".*zip")
+    email_crawler.crawl_info(from_addr="service@mail.mybank.cn", attachment_fn_pattern=".*xlsx")

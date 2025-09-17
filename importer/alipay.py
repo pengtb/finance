@@ -77,7 +77,7 @@ class AlipayTransactionImporter(TransactionImporter):
             
         # save ignored rows
         if (rest_file_path is not None) and (len(ignored_rows) > 0):
-            ignored = pd.concat(ignored_rows, axis=1)
+            ignored = pd.DataFrame(ignored_rows)
             ## restore
             ignored["time"] = ignored["time"].apply(lambda x: time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(x)))
             ignored["amount"] = ignored["amount"].astype(float)/100
