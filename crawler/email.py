@@ -108,10 +108,10 @@ class EmailCrawler(Crawler):
             raise e
         
 if __name__ == "__main__":
-    # email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/alipay_account.pdf")
+    email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/alipay_account.pdf")
     # email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/eaccount_account.zip")
-    email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/yulibao_account.xlsx")
+    # email_crawler = EmailCrawler(update_time="01:00", update_interval=86400, save_fp="datatables/yulibao_account.xlsx")
     # email_crawler.schedule_crawling()
-    # email_crawler.crawl_info()
+    email_crawler.crawl_info()
     # email_crawler.crawl_info(from_addr="efund@chinaclear.com.cn", attachment_fn_pattern=".*zip")
-    email_crawler.crawl_info(from_addr="service@mail.mybank.cn", attachment_fn_pattern=".*xlsx")
+    # email_crawler.crawl_info(from_addr="service@mail.mybank.cn", attachment_fn_pattern=".*xlsx")

@@ -1,7 +1,9 @@
 import pandas as pd
 import time
+import json
 import pdfplumber
 from . import Account, ParentAccount, AccountImporter, icon_mapping, category_mapping, color_mapping
+from . import Transaction
 
 class AlipayFundImporter(AccountImporter):
     def import_accounts(self, file_path: str, update_info: bool = True, update_info_fp: str = 'datatables/fund_info.tsv'):
@@ -23,6 +25,13 @@ class AlipayFundImporter(AccountImporter):
         raw_df.columns = ["idx", "trade_account", "name", "code", "amount", "value", "balanceTime", "balance"]
         ## subset
         raw_df.drop(columns=["idx", "trade_account", "value"])
+        ## combine cross-page rows
+        toremove = []
+        for idx, row in raw_df.iterrows():
+            if row["code"] == "": ### empty row, combine name with previous row
+                raw_df.loc[idx-1, "name"] += row["name"]
+                toremove.append(idx)
+        raw_df = raw_df.drop(index=toremove).reset_index(drop=True)
         ## format
         raw_df["name"] = raw_df["name"].str.replace("\n", "")
         raw_df["code"] = raw_df["code"].astype(int)
@@ -73,7 +82,7 @@ class AlipayFundImporter(AccountImporter):
                 account.category = category_mapping["savings"]
                 d1_accounts.append(account)
             elif "7日" in account.name:
-                account.category = category_mapping["savings"]
+                account.category = category_mapping["investment"]
                 d7_accounts.append(account)
             elif "定活" in account.name:
                 account.category = category_mapping["investment"]
@@ -97,7 +106,7 @@ class AlipayFundImporter(AccountImporter):
         d7_account.currency = "---"
         d7_account.icon = icon_mapping["bonds"]
         d7_account.color = color_mapping["deposit"]
-        d7_account.category = category_mapping["savings"]
+        d7_account.category = category_mapping["investment"]
         d7_account.subAccounts = d7_accounts
         
         d360_account = ParentAccount()
@@ -113,3 +122,16 @@ class AlipayFundImporter(AccountImporter):
         
         return grouped_accounts
     
+class FundUpdateTransaction(Transaction):
+    amount: float
+    
+    def assign_categoryId(self, categoryid_description: str):
+        ## parse to form json & df
+        categoryid_des_json = json.loads(categoryid_description)
+        categoryid_des_df = pd.DataFrame(categoryid_des_json)
+        ## assign categoryId
+        if self.amount > 0:
+            subcategory_id = categoryid_des_df[categoryid_des_df['name']=="投资收入"]['id'].values[0]
+        else:
+            subcategory_id = categoryid_des_df[categoryid_des_df['name']=="投资损失"]['id'].values[0]
+        return subcategory_id
