@@ -1,7 +1,8 @@
 from api.account import Account_API
 from api.transaction import Transaction_API
 from importer.eaccount import EAccountImporter
-from importer.alipayfund import AlipayFundImporter, FundUpdateTransaction
+from importer.alipayfund import AlipayFundImporter
+from importer.updatefund import FundUpdateTransaction, FundUpdateImporter
 from importer import TransactionImporter
 import argparse
 import json
@@ -13,8 +14,7 @@ def parse_args(cmdline=None):
     parser = argparse.ArgumentParser(description="ezBookkeeping Account Updater")
     parser.add_argument("--file", type=str, help="Path to the input file")
     parser.add_argument("--action", type=str, help="Action to perform", choices=["add", "list", "delete", "update-fund"])
-    parser.add_argument("--importer", type=str, help="Importer to use", choices=["eaccount", "alipay"], default="alipay")
-    parser.add_argument("--update-info", action='store_true')
+    parser.add_argument("--importer", type=str, help="Importer to use", choices=["eaccount", "alipay", "update-fund"], default="alipay")
     parser.add_argument("--dry-run", action='store_true')
     args = parser.parse_known_args(cmdline)[0]
     
@@ -26,10 +26,18 @@ def parse_args(cmdline=None):
     elif args.action == "list":
         parser.add_argument("--show-all", action='store_true', help="if show all columns")
         args = parser.parse_known_args(cmdline)[0]
+    elif args.action == "update-fund":
+        parser.add_argument("--update-info", action='store_true', help="if update account info using fund crawler")
+        parser.add_argument("--update-info-fp", type=str, help="Path to the fund info file", default="datatables/fund_info.tsv")
+        args = parser.parse_known_args(cmdline)[0]
+        if not args.update_info:
+            print("update-info not enabled, you sure?")
         
     # no need for importer when action is list
     if args.action == "list":
         args.importer = None
+    elif args.action == "update-fund":
+        args.importer = "update-fund"
     return args
 
 def fetch_accounts(api):
@@ -59,6 +67,36 @@ def delete_accounts(account_ids, api, dry_run=False):
             print(f"Delete account failed: {account_id}")
             print(response)
             continue
+        
+def update_accounts(account_ids, transaction_api, delta_balances, dry_run=False):
+    for account_id, delta_balance in tqdm(zip(account_ids, delta_balances), total=len(account_ids)):
+        ### init transaction
+        transaction = FundUpdateTransaction()
+        transaction.sourceAccountId = account_id
+        ### time
+        transaction.time = int(time.time())
+        ### amount
+        transaction.amount = delta_balance
+        if delta_balance == 0:
+            print(f"Account {account_id} balance not changed, skip update")
+            continue
+        transaction.sourceAmount = int(abs(delta_balance))
+        ### categoryId
+        subcategories_df = TransactionImporter.collect_categories()
+        subcategories = list(subcategories_df.to_dict(orient="index").values())
+        categories_description = json.dumps(subcategories, ensure_ascii=False)
+        transaction.categoryId = transaction.assign_categoryId(categories_description)
+        transaction.type = int(subcategories_df.loc[subcategories_df["id"]==transaction.categoryId, "type"].iloc[0])
+        
+        ### add transaction
+        if dry_run:
+            print(transaction.to_dict())
+            continue
+        response = transaction_api.add_transaction(**transaction.to_dict())
+        if response["success"] != True: 
+            print(f"Add transaction failed: {transaction.to_dict()}")
+            print(response)
+            continue
 
 if __name__ == "__main__":
     # parse arguments
@@ -66,18 +104,22 @@ if __name__ == "__main__":
     
     # create api
     api = Account_API()
+    transaction_api = Transaction_API()
     
+    # first list available accounts
+    result_df = fetch_accounts(api)
+            
     # create importer
     if args.importer == "eaccount":
         importer = EAccountImporter()
-        query_accounts = importer.import_accounts(args.file, update_info=args.update_info)
-        
+        query_accounts = importer.import_accounts(args.file, update_info=args.update_info, update_info_fp=args.update_info_fp)
     elif args.importer == "alipay":
         importer = AlipayFundImporter()
-        query_accounts = importer.import_accounts(args.file, update_info=args.update_info)
-            
-    # first list available accounts
-    result_df = fetch_accounts(api)
+        query_accounts = importer.import_accounts(args.file, update_info=args.update_info, update_info_fp=args.update_info_fp)
+    elif args.importer == "update-fund":
+        importer = FundUpdateImporter()
+        query_accounts = importer.import_accounts(result_df, update_info=args.update_info, update_info_fp=args.update_info_fp)
+        
     if (args.action == "list"):
         pd.set_option('display.max_columns', None)
         pd.set_option('display.max_rows', None)
@@ -85,7 +127,6 @@ if __name__ == "__main__":
             print(result_df)
         else:
             print(result_df.loc[:, ['id', 'name', 'balance', 'currency']])
-        
     # add accounts
     elif args.action == "add":
         ## check existing accounts
@@ -119,68 +160,42 @@ if __name__ == "__main__":
         ## update existing accounts
         if len(toupdate_accounts) > 0:
             print(f"Accounts to update: {[account.name for account in toupdate_accounts]}")
-            transaction_api = Transaction_API()
-            for account in tqdm(toupdate_accounts):
-                ### init transaction
-                transaction = FundUpdateTransaction()
-                transaction.sourceAccountId = existing_accounts_df[existing_accounts_df['name']==account.name]['id'].values[0]
-                ### time
-                transaction.time = int(time.time())
-                ### amount
-                old_balance = existing_accounts_df[existing_accounts_df['name']==account.name]['balance'].values[0]
-                amount = account.balance - old_balance
-                transaction.amount = amount
-                if amount == 0:
-                    print(f"Account {account.name} balance not changed, skip update")
-                    continue
-                transaction.sourceAmount = int(abs(amount))
-                ### categoryId
-                subcategories_df = TransactionImporter.collect_categories()
-                subcategories = list(subcategories_df.to_dict(orient="index").values())
-                categories_description = json.dumps(subcategories, ensure_ascii=False)
-                transaction.categoryId = transaction.assign_categoryId(categories_description)
-                transaction.type = int(subcategories_df.loc[subcategories_df["id"]==transaction.categoryId, "type"].iloc[0])
-                
-                ### add transaction
-                if args.dry_run:
-                    print(transaction.to_dict())
-                    continue
-                response = transaction_api.add_transaction(**transaction.to_dict())
-                if response["success"] != True: 
-                    print(f"Add transaction failed: {transaction.to_dict()}")
-                    print(response)
-                    continue
+            ### account ids
+            toupdate_account_names = [account.name for account in toupdate_accounts]
+            toupdate_account_ids = existing_accounts_df.set_index('name').loc[toupdate_account_names, 'id'].tolist()
+            ### delta balances
+            prev_balances = existing_accounts_df.set_index('name').loc[toupdate_account_names, 'balance'].tolist()
+            current_balances = [account.balance for account in toupdate_accounts]
+            delta_balances = [float(current_balance - prev_balance) for current_balance, prev_balance in zip(current_balances, prev_balances)]
+            ### create transactions
+            update_accounts(toupdate_account_ids, transaction_api, delta_balances, dry_run=args.dry_run)
         
-    elif (args.action == "update-fund") or (args.action == "delete"):
+    elif args.action == "delete":
         ## filter accounts according to query
         query_df = pd.DataFrame([account.to_dict() for account in query_accounts])
         ## merge dataframes
-        merged_df = pd.merge(result_df.loc[:, ['id', 'name']], query_df, on='name', how='inner')
-        
-        # modify accounts
-        if (args.action == "update-fund"):
-            for id in tqdm(merged_df['id']):
-                if args.dry_run:
-                    modified_accounts = merged_df[merged_df['id'] == id]
-                    print(modified_accounts)
-                    continue
-                response = api.modify_account(**modified_accounts.to_dict())
-                if response["success"] != True: 
-                    print(f"Modify account failed: {modified_accounts.to_dict()}")
-                    print(response)
-                    continue
-            print(f"Modified {len(merged_df)} accounts")
+        merged_df = pd.merge(result_df.loc[:, ['id', 'name', 'type']], query_df, on='name', how='inner')
 
         # delete accounts
-        elif (args.action == "delete"):
-            for id in tqdm(merged_df['id']):
-                if args.dry_run:
-                    print(f"Delete account {id}")
-                    continue
-                response = api.delete_account(id=id)
-                if response["success"] != True: 
-                    print(f"Delete account failed: {id}")
-                    print(response)
-                    continue
-            print(f"Deleted {len(merged_df)} accounts")
+        for id in tqdm(merged_df['id']):
+            if args.dry_run:
+                print(f"Delete account {id}")
+                continue
+            response = api.delete_account(id=id)
+            if response["success"] != True: 
+                print(f"Delete account failed: {id}")
+                print(response)
+                continue
+        print(f"Deleted {len(merged_df)} accounts")
+            
+    # update-fund
+    elif (args.action == "update-fund"):
+        ### toupdate account ids
+        toupdate_account_ids = [account.id for account in query_accounts]
+        ### delta balances
+        prev_balances = [account.prev_balance for account in query_accounts]
+        current_balances = [account.balance for account in query_accounts]
+        delta_balances = [float(current_balance - prev_balance) for current_balance, prev_balance in zip(current_balances, prev_balances)]
+        ### create transactions
+        update_accounts(toupdate_account_ids, transaction_api, delta_balances, dry_run=args.dry_run)
             

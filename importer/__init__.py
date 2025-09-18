@@ -4,6 +4,7 @@ import json
 import json
 from api.transaction import Transaction_API
 from api.account import Account_API
+from crawler.fund import FundCrawler
         
 # account icons
 icon_mapping = {
@@ -165,13 +166,21 @@ class AccountImporter:
         strict: only keep those with available values in update_info_df
         """
         # load update info
-        update_info_df = pd.read_table(update_info_fp, usecols=['code', 'value'])
+        if update_info_fp is not None:
+            update_info_df = pd.read_table(update_info_fp, usecols=['code', 'value'])
+        else:
+            fund_crawler = FundCrawler()
+            update_info_df = fund_crawler.crawl_info(save=False)
+        update_info_df = update_info_df.loc[:, ["code", "value"]]
+        
         if strict: update_info_df = update_info_df.loc[update_info_df.value!='---']
         
-        # current account df
+        # preprocess
+        ## only with comment / fund code
+        accounts = [account for account in accounts if account.comment!=""]
+        ## current account df
         accounts_df = pd.DataFrame([account.to_dict() for account in accounts])
         ## release json
-        accounts_df.loc[:, 'source'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['source'])
         accounts_df.loc[:, 'amount'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['amount']).astype(float)
         accounts_df.loc[:, 'code'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['code']).astype(int)
         ## previous value
@@ -191,15 +200,12 @@ class AccountImporter:
         merged.loc[:, 'balanceTime'] = int(os.path.getmtime(update_info_fp))
         
         # create updated accounts
+        toupdate_accounts = [account for account in accounts if account.name in merged['name'].values]
         updated_accounts = []
-        for _, row in merged.iterrows():
-            account = Account()
-            account.name = row["name"]
-            account.balanceTime = row["balanceTime"]
-            account.account_type = 1
-            account.balance = row["balance"]
-            account.currency = row["currency"]
-            account.comment = row[["code","amount"]].to_json()
+        for account in toupdate_accounts:
+            account.prev_balance = account.balance
+            account.balance = merged.loc[merged['name']==account.name, 'balance'].values[0]
+            account.balanceTime = merged.loc[merged['name']==account.name, 'balanceTime'].values[0]
             updated_accounts.append(account)
         
         return updated_accounts

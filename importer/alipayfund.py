@@ -1,9 +1,7 @@
 import pandas as pd
 import time
-import json
 import pdfplumber
 from . import Account, ParentAccount, AccountImporter, icon_mapping, category_mapping, color_mapping
-from . import Transaction
 
 class AlipayFundImporter(AccountImporter):
     def import_accounts(self, file_path: str, update_info: bool = True, update_info_fp: str = 'datatables/fund_info.tsv'):
@@ -122,16 +120,3 @@ class AlipayFundImporter(AccountImporter):
         
         return grouped_accounts
     
-class FundUpdateTransaction(Transaction):
-    amount: float
-    
-    def assign_categoryId(self, categoryid_description: str):
-        ## parse to form json & df
-        categoryid_des_json = json.loads(categoryid_description)
-        categoryid_des_df = pd.DataFrame(categoryid_des_json)
-        ## assign categoryId
-        if self.amount > 0:
-            subcategory_id = categoryid_des_df[categoryid_des_df['name']=="投资收入"]['id'].values[0]
-        else:
-            subcategory_id = categoryid_des_df[categoryid_des_df['name']=="投资损失"]['id'].values[0]
-        return subcategory_id
