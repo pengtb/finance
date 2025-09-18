@@ -119,10 +119,6 @@ def main(args):
             args.file = "./datatables/alipay_accounts.pdf"
             from_addr = "service@mail.alipay.com"
             attachment_fn_pattern=".*pdf"
-        elif args.importer == "yulibao":
-            args.file = "./datatables/yulibao_accounts.xlsx"
-            from_addr = "service@mail.mybank.cn"
-            attachment_fn_pattern=".*xlsx"
         else:
             print(f"Importer {args.importer} not supported, please specify file path")
             exit(1)
