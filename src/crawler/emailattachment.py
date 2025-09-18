@@ -44,7 +44,7 @@ class EmailCrawler(Crawler):
                 ## filter emails
                 """
                 from service@mail.alipay.com
-                on {today}
+                on {today} or {today - 1 day}
                 """
                 status, msg_data = mail.fetch(mail_id, "(RFC822)")
                 if status != "OK":
@@ -54,7 +54,7 @@ class EmailCrawler(Crawler):
                 if msg_from_addr != from_addr:
                     continue
                 date = email.utils.parsedate_to_datetime(msg["Date"])
-                if date.date() != datetime.date.today():
+                if date.date() < datetime.date.today() - datetime.timedelta(days=1):
                     continue
                 
                 ## fetch pdf attachment
