@@ -1,9 +1,13 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from api.account import Account_API
 from api.transaction import Transaction_API
 from importer.eaccount import EAccountImporter
 from importer.alipayfund import AlipayFundImporter
 from importer.updatefund import FundUpdateTransaction, FundUpdateImporter
 from importer import TransactionImporter
+from crawler.emailattachment import EmailCrawler
 import argparse
 import json
 import time
@@ -108,6 +112,22 @@ if __name__ == "__main__":
     
     # first list available accounts
     result_df = fetch_accounts(api)
+    
+    # fetch email attachments if file is not specified
+    if not args.file:
+        if args.importer == "alipay":
+            args.file = "./datatables/alipay_accounts.pdf"
+            from_addr = "service@mail.alipay.com"
+            attachment_fn_pattern=".*pdf"
+        elif args.importer == "yulibao":
+            args.file = "./datatables/yulibao_accounts.xlsx"
+            from_addr = "service@mail.mybank.cn"
+            attachment_fn_pattern=".*xlsx"
+        else:
+            print(f"Importer {args.importer} not supported, please specify file path")
+            exit(1)
+        email_crawler = EmailCrawler(save_fp=args.file, from_addr=from_addr, attachment_fn_pattern=attachment_fn_pattern)
+        email_crawler.crawl_info()
             
     # create importer
     if args.importer == "eaccount":
