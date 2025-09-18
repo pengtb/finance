@@ -6,9 +6,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src /app/src
 WORKDIR /app/src
 # make cron
-RUN chmod +x /app/src/make_crontab.sh && \
-/app/src/make_crontab.sh /etc/cron.d/finance-crontab && \
-chmod 644 /etc/cron.d/finance-crontab && \
-crontab /etc/cron.d/finance-crontab
+RUN chmod +x /app/src/make_crontab.sh
 # start cron
-CMD ["cron", "-f"]
+COPY entrypoint.sh /app/src/entrypoint.sh
+CMD ["/app/src/entrypoint.sh"]
