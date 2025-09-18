@@ -13,6 +13,8 @@ import json
 import time
 from tqdm import tqdm
 import pandas as pd
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 def parse_args(cmdline=None):
     parser = argparse.ArgumentParser(description="ezBookkeeping Account Updater")
@@ -20,6 +22,7 @@ def parse_args(cmdline=None):
     parser.add_argument("--action", type=str, help="Action to perform", choices=["add", "list", "delete", "update-fund"])
     parser.add_argument("--importer", type=str, help="Importer to use", choices=["eaccount", "alipay", "update-fund"], default="alipay")
     parser.add_argument("--dry-run", action='store_true')
+    parser.add_argument("--crontab", type=str, help="Crontab expression")
     args = parser.parse_known_args(cmdline)[0]
     
     # extra options for add
@@ -102,10 +105,7 @@ def update_accounts(account_ids, transaction_api, delta_balances, dry_run=False)
             print(response)
             continue
 
-if __name__ == "__main__":
-    # parse arguments
-    args = parse_args()
-    
+def main(args):
     # create api
     api = Account_API()
     transaction_api = Transaction_API()
@@ -219,3 +219,25 @@ if __name__ == "__main__":
         ### create transactions
         update_accounts(toupdate_account_ids, transaction_api, delta_balances, dry_run=args.dry_run)
             
+            
+if __name__ == "__main__":
+    # parse arguments
+    args = parse_args()
+    
+    if args.crontab:
+        # create scheduler
+        scheduler = BackgroundScheduler()
+        ## add job
+        scheduler.add_job(main, CronTrigger.from_crontab(args.crontab), args=[args])
+        ## start scheduler
+        scheduler.start()
+        ## block main thread
+        try:
+            while True:
+                time.sleep(1)
+        except (KeyboardInterrupt, SystemExit):
+            scheduler.shutdown()
+            print("Scheduler shutdown.")
+            exit(0)
+    else:
+        main(args)
