@@ -1,4 +1,5 @@
 akshare==1.17.44
+APScheduler==3.11.0
 mcp_agent==0.1.25
 pandas==2.3.2
 pdfplumber==0.11.7

@@ -230,6 +230,7 @@ if __name__ == "__main__":
         ## add job
         scheduler.add_job(main, CronTrigger.from_crontab(args.crontab), args=[args])
         ## start scheduler
+        print(f"Add job: {args.crontab}")
         scheduler.start()
         ## block main thread
         try:
