@@ -11,6 +11,7 @@ from crawler.emailattachment import EmailCrawler
 import argparse
 import json
 import time
+import os
 from tqdm import tqdm
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -124,6 +125,9 @@ def main(args):
             exit(1)
         email_crawler = EmailCrawler(save_fp=args.file, from_addr=from_addr, attachment_fn_pattern=attachment_fn_pattern)
         email_crawler.crawl_info()
+        if not os.path.exists(args.file):
+            print(f"File {args.file} not exists, exit")
+            exit(1)
             
     # create importer
     if args.importer == "eaccount":
