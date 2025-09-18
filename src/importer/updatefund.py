@@ -2,7 +2,7 @@ import json
 import pandas as pd
 import time
 from . import Transaction
-from . import Account, AccountImporter, icon_mapping, category_mapping, color_mapping
+from . import Account, AccountImporter
 
 class FundUpdateImporter(AccountImporter):
     def import_accounts(self, result_df: pd.DataFrame, 

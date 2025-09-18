@@ -112,10 +112,10 @@ if __name__ == "__main__":
     # create importer
     if args.importer == "eaccount":
         importer = EAccountImporter()
-        query_accounts = importer.import_accounts(args.file, update_info=args.update_info, update_info_fp=args.update_info_fp)
+        query_accounts = importer.import_accounts(args.file)
     elif args.importer == "alipay":
         importer = AlipayFundImporter()
-        query_accounts = importer.import_accounts(args.file, update_info=args.update_info, update_info_fp=args.update_info_fp)
+        query_accounts = importer.import_accounts(args.file)
     elif args.importer == "update-fund":
         importer = FundUpdateImporter()
         query_accounts = importer.import_accounts(result_df, update_info=args.update_info, update_info_fp=args.update_info_fp)

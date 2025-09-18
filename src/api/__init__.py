@@ -1,10 +1,10 @@
 import requests
 import json
+import os
 
-USER="pengtb"
-API_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyVG9rZW5JZCI6IjIxMDcwODI4NDU4MTM4NzI0MDEiLCJqdGkiOiIzNzcyNzE3NzEzMzgyNzAzMTA0IiwidXNlcm5hbWUiOiJwZW5ndGIiLCJ0eXBlIjoxLCJpYXQiOjE3NTY4MDkzMDksImV4cCI6MTc1OTQwMTMwOX0.G1Ut8wXG__pPsy2hbBd0ttuPsQpuk2xnbpqYQst1ilw"
-X_TIMEZONE_OFFSET=480 # GMT+8
-BASE_URL="https://finance.konojojo.icu/api/v1"
+API_TOKEN=os.getenv("API_TOKEN")
+X_TIMEZONE_OFFSET=int(os.getenv("X_TIMEZONE_OFFSET")) # GMT+8
+BASE_URL=os.getenv("BASE_URL")
 
 class BaseAPI:
     def __init__(self):

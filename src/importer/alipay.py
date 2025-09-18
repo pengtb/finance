@@ -2,6 +2,7 @@ import pandas as pd
 import time
 import json
 import asyncio
+import os
 from mcp_agent.core.fastagent import FastAgent
 from . import Transaction, TransactionImporter
 
@@ -50,7 +51,7 @@ class AlipayTransaction(Transaction):
                 or ("面" in item) or ("粉" in item) or ("饭" in item) or ("水饺" in item) or ("包子" in item) \
                     or ("紫光园" in item) or ("眉州东坡" in item)\
                     or ("麻辣烫" in item) or ("烧" in item) or ("汉堡" in item) or ("塔可" in item) \
-                        or ("排" in item) or ("披萨" in item) or ("海鲜" in item)\
+                        or ("排" in item) or ("披萨" in item) or ("海鲜" in item) or ("涮肉" in item)\
                         or ("牛" in item) or ("鸡" in item) or ("鸭" in item) or ("鱼" in item) or ("兔" in item) \
                     or ("快餐" in item) or ("简餐" in item) or ("酒馆" in item) or ("食品" in payee)\
                 or ("美团" in item) or ("扫码付" in item) \
@@ -164,6 +165,8 @@ class AlipayTransaction(Transaction):
             return subcategory_id
 
         # then by llm
+        if "OPENAI_API_KEY" not in os.environ:
+            return None
         ## create prompt
         prompt = f"""
         交易描述: {transaction_description}
@@ -184,8 +187,10 @@ class AlipayTransaction(Transaction):
             async with fast.run() as agent:
                 response = await agent(prompt)
             return response
-            
-        subcategory_id = asyncio.run(run_agent(prompt))
+        try:
+            subcategory_id = int(asyncio.run(run_agent(prompt)))
+        except (ValueError, TypeError):
+            subcategory_id = None
         return subcategory_id
     
     def assign_accountId(self, accounts_df: pd.DataFrame, transaction_description: str, transaction_subcategory: str):

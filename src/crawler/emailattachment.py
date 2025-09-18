@@ -7,10 +7,10 @@ import os
 import re
 from . import Crawler
 
-EMAIL_SERVER = "imap.konojojo.icu"
-EMAIL_PORT = 993
-EMAIL_USER = "ptbian@konojojo.icu"
-EMAIL_PASSWORD = "TD-LTEMCE16ptb"
+EMAIL_SERVER = os.getenv("EMAIL_SERVER")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT"))
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
 class EmailCrawler(Crawler):
     """
