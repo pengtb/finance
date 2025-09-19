@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 import json
-import json
+import time
 from api.transaction import Transaction_API
 from api.account import Account_API
 from crawler.fund import FundCrawler
@@ -182,11 +182,12 @@ class AccountImporter:
         accounts_df = pd.DataFrame([account.to_dict() for account in accounts])
         ## release json
         accounts_df.loc[:, 'amount'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['amount']).astype(float)
-        accounts_df.loc[:, 'code'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['code'])
+        accounts_df.loc[:, 'code'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['code']).astype(str)
         ## previous value
         accounts_df.loc[:, 'prev_value'] = accounts_df.loc[:, 'balance'] / accounts_df.loc[:, 'amount']
         
         # merge
+        update_info_df.loc[:, 'code'] = update_info_df.loc[:, 'code'].astype(str)
         merged = pd.merge(accounts_df, update_info_df, on='code', how='inner')
         
         # keep previous value if new value is not available
@@ -197,7 +198,10 @@ class AccountImporter:
         
         # update balanceTime
         ## modification time of update info file
-        merged.loc[:, 'balanceTime'] = int(os.path.getmtime(update_info_fp))
+        if update_info_fp is not None:
+            merged.loc[:, 'balanceTime'] = int(os.path.getmtime(update_info_fp))
+        else:
+            merged.loc[:, 'balanceTime'] = int(time.time())
         
         # create updated accounts
         toupdate_accounts = [account for account in accounts if account.name in merged['name'].values]
