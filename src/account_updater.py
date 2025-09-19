@@ -36,7 +36,7 @@ def parse_args(cmdline=None):
         args = parser.parse_known_args(cmdline)[0]
     elif args.action == "update-fund":
         parser.add_argument("--update-info", action='store_true', help="if update account info using fund crawler")
-        parser.add_argument("--update-info-fp", type=str, help="Path to the fund info file", default="datatables/fund_info.tsv")
+        parser.add_argument("--update-info-fp", type=str, help="Path to the fund info file")
         args = parser.parse_known_args(cmdline)[0]
         if not args.update_info:
             print("update-info not enabled, you sure?")
