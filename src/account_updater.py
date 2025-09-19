@@ -115,19 +115,20 @@ def main(args):
     result_df = fetch_accounts(api)
     
     # fetch email attachments if file is not specified
-    if not args.file:
-        if args.importer == "alipay":
-            args.file = "./datatables/alipay_accounts.pdf"
-            from_addr = "service@mail.alipay.com"
-            attachment_fn_pattern=".*pdf"
-        else:
-            print(f"Importer {args.importer} not supported, please specify file path")
-            exit(1)
-        email_crawler = EmailCrawler(save_fp=args.file, from_addr=from_addr, attachment_fn_pattern=attachment_fn_pattern)
-        email_crawler.crawl_info()
-        if not os.path.exists(args.file):
-            print(f"File {args.file} not exists, exit")
-            exit(1)
+    if (args.importer != "update-fund") and (args.importer is not None):
+        if not args.file:
+            if args.importer == "alipay":
+                args.file = "./datatables/alipay_accounts.pdf"
+                from_addr = "service@mail.alipay.com"
+                attachment_fn_pattern=".*pdf"
+            else:
+                print(f"Importer {args.importer} not supported, please specify file path")
+                exit(1)
+            email_crawler = EmailCrawler(save_fp=args.file, from_addr=from_addr, attachment_fn_pattern=attachment_fn_pattern)
+            email_crawler.crawl_info()
+            if not os.path.exists(args.file):
+                print(f"File {args.file} not exists, exit")
+                exit(1)
             
     # create importer
     if args.importer == "eaccount":
