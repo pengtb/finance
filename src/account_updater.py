@@ -124,8 +124,8 @@ def main(args):
             else:
                 print(f"Importer {args.importer} not supported, please specify file path")
                 exit(1)
-            email_crawler = EmailCrawler(save_fp=args.file, from_addr=from_addr, attachment_fn_pattern=attachment_fn_pattern)
-            email_crawler.crawl_info()
+            email_crawler = EmailCrawler(save_fp=args.file)
+            email_crawler.crawl_info(from_addr=from_addr, attachment_fn_pattern=attachment_fn_pattern)
             if not os.path.exists(args.file):
                 print(f"File {args.file} not exists, exit")
                 exit(1)
