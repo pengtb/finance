@@ -57,7 +57,7 @@ def fetch_accounts(api):
 def add_accounts(accounts, api, dry_run=False):
     for account in tqdm(accounts):
         if dry_run:
-            print(account.to_dict())
+            print(f"Add account {account.to_dict()}")
             continue
         response = api.add_account(**account.to_dict())
         if response["success"] != True: 
@@ -76,7 +76,25 @@ def delete_accounts(account_ids, api, dry_run=False):
             print(response)
             continue
         
-def update_accounts(account_ids, transaction_api, delta_balances, dry_run=False):
+def update_accounts_amount(accounts, account_ids, api, dry_run=False):
+    for account, account_id in tqdm(zip(accounts, account_ids), total=len(accounts)):
+        if dry_run:
+            print(f"Update account {account_id} amount by {json.loads(account.comment)["amount"]}")
+            continue
+        ### update other fields
+        request_dict = account.to_dict()
+        request_dict["id"] = account_id
+        request_dict.pop("currency")
+        request_dict.pop("balance")
+        request_dict.pop("balanceTime")
+        ### modify account
+        response = api.modify_account(**request_dict)
+        if response["success"] != True: 
+            print(f"Update account failed: {account_id}")
+            print(response)
+            continue
+        
+def update_accounts_balance(account_ids, transaction_api, delta_balances, dry_run=False):
     for account_id, delta_balance in tqdm(zip(account_ids, delta_balances), total=len(account_ids)):
         ### init transaction
         transaction = FundUpdateTransaction()
@@ -184,12 +202,14 @@ def main(args):
             ### account ids
             toupdate_account_names = [account.name for account in toupdate_accounts]
             toupdate_account_ids = existing_accounts_df.set_index('name').loc[toupdate_account_names, 'id'].tolist()
+            ### modify amounts
+            update_accounts_amount(toupdate_accounts, toupdate_account_ids, api, dry_run=args.dry_run)
             ### delta balances
             prev_balances = existing_accounts_df.set_index('name').loc[toupdate_account_names, 'balance'].tolist()
             current_balances = [account.balance for account in toupdate_accounts]
             delta_balances = [float(current_balance - prev_balance) for current_balance, prev_balance in zip(current_balances, prev_balances)]
             ### create transactions
-            update_accounts(toupdate_account_ids, transaction_api, delta_balances, dry_run=args.dry_run)
+            update_accounts_balance(toupdate_account_ids, transaction_api, delta_balances, dry_run=args.dry_run)
         
     elif args.action == "delete":
         ## filter accounts according to query
@@ -218,7 +238,7 @@ def main(args):
         current_balances = [account.balance for account in query_accounts]
         delta_balances = [float(current_balance - prev_balance) for current_balance, prev_balance in zip(current_balances, prev_balances)]
         ### create transactions
-        update_accounts(toupdate_account_ids, transaction_api, delta_balances, dry_run=args.dry_run)
+        update_accounts_balance(toupdate_account_ids, transaction_api, delta_balances, dry_run=args.dry_run)
             
             
 if __name__ == "__main__":
