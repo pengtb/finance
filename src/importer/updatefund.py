@@ -58,3 +58,12 @@ class FundUpdateTransaction(Transaction):
         else:
             subcategory_id = categoryid_des_df[categoryid_des_df['name']=="投资损失"]['id'].values[0]
         return subcategory_id
+    
+class FundZeroTransaction(Transaction):
+    def assign_categoryId(self, categoryid_description: str):
+        ## parse to form json & df
+        categoryid_des_json = json.loads(categoryid_description)
+        categoryid_des_df = pd.DataFrame(categoryid_des_json)
+        ## assign categoryId
+        subcategory_id = categoryid_des_df[categoryid_des_df['name']=="投资支出"]['id'].values[0]
+        return subcategory_id

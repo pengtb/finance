@@ -45,9 +45,9 @@ class AlipayFundImporter(AccountImporter):
         for _, row in raw_df.iterrows():
             account = Account()
             account.name = row["name"]
-            account.balanceTime = row["balanceTime"]
+            account.balanceTime = int(row["balanceTime"])
             account.account_type = 1
-            account.balance = row["balance"]
+            account.balance = int(row["balance"])
             account.currency = row["currency"]
             account.comment = row[["code","amount","source"]].to_json()
             accounts.append(account)

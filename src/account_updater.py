@@ -5,13 +5,14 @@ from api.account import Account_API
 from api.transaction import Transaction_API
 from importer.eaccount import EAccountImporter
 from importer.alipayfund import AlipayFundImporter
-from importer.updatefund import FundUpdateTransaction, FundUpdateImporter
+from importer.updatefund import FundUpdateTransaction, FundZeroTransaction, FundUpdateImporter
 from importer import TransactionImporter
 from crawler.emailattachment import EmailCrawler
 import argparse
 import json
 import time
 import os
+import sys
 from tqdm import tqdm
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -50,6 +51,9 @@ def parse_args(cmdline=None):
 
 def fetch_accounts(api):
     response = api.list_accounts()
+    if response["success"] != True: 
+        print(f"List accounts failed: {response}")
+        sys.exit(1)
     result = response['result']
     result_df = pd.DataFrame(result)
     return result_df
@@ -123,6 +127,36 @@ def update_accounts_balance(account_ids, transaction_api, delta_balances, dry_ru
             print(f"Add transaction failed: {transaction.to_dict()}")
             print(response)
             continue
+        
+def zero_accounts_balance(account_ids, transaction_api, orig_balances, dry_run=False):
+    for account_id, orig_balance in tqdm(zip(account_ids, orig_balances), total=len(account_ids)):
+        ### init transaction
+        transaction = FundZeroTransaction()
+        transaction.sourceAccountId = account_id
+        ### time
+        transaction.time = int(time.time())
+        ### amount
+        if orig_balance == 0:
+            print(f"Account {account_id} balance not changed, skip update")
+            continue
+        transaction.amount = - orig_balance
+        transaction.sourceAmount = int(abs(orig_balance))
+        ### categoryId
+        subcategories_df = TransactionImporter.collect_categories()
+        subcategories = list(subcategories_df.to_dict(orient="index").values())
+        categories_description = json.dumps(subcategories, ensure_ascii=False)
+        transaction.categoryId = transaction.assign_categoryId(categories_description)
+        transaction.type = int(subcategories_df.loc[subcategories_df["id"]==transaction.categoryId, "type"].iloc[0])
+        
+        ### add transaction
+        if dry_run:
+            print(transaction.to_dict())
+            continue
+        response = transaction_api.add_transaction(**transaction.to_dict())
+        if response["success"] != True: 
+            print(f"Add transaction failed: {transaction.to_dict()}")
+            print(response)
+            continue
 
 def main(args):
     # create api
@@ -131,6 +165,9 @@ def main(args):
     
     # first list available accounts
     result_df = fetch_accounts(api)
+    result_df = result_df[result_df["comment"]!=""]
+    if "subAccounts" not in result_df.columns:
+        result_df["subAccounts"] = pd.NA
     
     # fetch email attachments if file is not specified
     if (args.importer != "update-fund") and (args.importer is not None):
@@ -190,9 +227,13 @@ def main(args):
             toadd_accounts = [account for account in query_accounts if account.name not in existing_accounts_df['name'].tolist()]
         
         ## delete accounts
-        delete_accounts(todelete_accounts_df['id'].tolist(), api, dry_run=args.dry_run)
-        if len(todelete_accounts_df) > 0: 
-            print(f"Deleted {len(todelete_accounts_df)} accounts")
+        delete_accounts(old_parent_accounts_df['id'].tolist(), api, dry_run=args.dry_run)
+        if len(old_parent_accounts_df) > 0: 
+            print(f"Deleted {len(old_parent_accounts_df)} accounts")
+        orig_balances = tobsolete_accounts_df.loc[:, 'balance'].tolist()
+        zero_accounts_balance(tobsolete_accounts_df['id'].tolist(), transaction_api, orig_balances, dry_run=args.dry_run)
+        if len(tobsolete_accounts_df) > 0: 
+            print(f"Zeroed {len(tobsolete_accounts_df)} accounts")
         ## add accounts
         add_accounts(toadd_accounts, api, dry_run=args.dry_run)
         print(f"Added {len(toadd_accounts)} accounts")
