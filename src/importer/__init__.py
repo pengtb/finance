@@ -208,8 +208,8 @@ class AccountImporter:
         updated_accounts = []
         for account in toupdate_accounts:
             account.prev_balance = account.balance
-            account.balance = merged.loc[merged['name']==account.name, 'balance'].values[0]
-            account.balanceTime = merged.loc[merged['name']==account.name, 'balanceTime'].values[0]
+            account.balance = int(merged.loc[merged['name']==account.name, 'balance'].values[0])
+            account.balanceTime = int(merged.loc[merged['name']==account.name, 'balanceTime'].values[0])
             updated_accounts.append(account)
         
         return updated_accounts
