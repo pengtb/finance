@@ -167,12 +167,14 @@ class AccountImporter:
         """
         # load update info
         if update_info_fp is not None:
-            update_info_df = pd.read_table(update_info_fp, usecols=['code', 'value'])
+            update_info_df = pd.read_table(update_info_fp, usecols=['code', 'value'], dtype={'code': int})
         else:
             fund_crawler = FundCrawler()
             update_info_df = fund_crawler.crawl_info(save=False)
-        update_info_df = update_info_df.loc[:, ["code", "value"]]
+            update_info_df = update_info_df.loc[:, ["code", "value"]]
+            update_info_df.loc[:, 'code'] = update_info_df.loc[:, 'code'].astype(int)
         
+        update_info_df.loc[:, 'code'] = update_info_df.loc[:, 'code'].astype(str)
         if strict: update_info_df = update_info_df.loc[update_info_df.value!='---']
         
         # preprocess

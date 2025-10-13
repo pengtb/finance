@@ -36,12 +36,13 @@ class FundUpdateImporter(AccountImporter):
             account.id = row["id"]
             
             accounts.append(account)
-            
+        
+        print(f"Imported {len(accounts)} accounts")
+        
         # update account info
         if update_info:
             accounts = self.update_info(accounts, update_info_fp, strict=True)
-            
-        print(f"Imported {len(accounts)} accounts")
+            print(f"Updated {len(accounts)} accounts")
         
         return accounts
 
