@@ -20,8 +20,8 @@ def parse_args(cmdline=None):
     if args.action == "add":
         parser.add_argument("--importer", type=str, help="Importer to use", choices=["alipay", "yulibao"], default="alipay")
         parser.add_argument("--file", type=str, help="Path to the input file")
-        parser.add_argument("--rest-file", type=str, help="Path to the rest and not imported file", default="./datatables/rest_transactions.tsv")
-        parser.add_argument("--save-dir", type=str, help="Path to save account and transaction subcategories", default="./datatables")
+        parser.add_argument("--rest-file", type=str, help="Path to the rest and not imported file", default="../datatables/rest_transactions.tsv")
+        parser.add_argument("--save-dir", type=str, help="Path to save account and transaction subcategories", default="../datatables")
     # extra options for list
     if args.action == "list":
         parser.add_argument("--history", action="store_true", help="List all past transactions, not only this month")

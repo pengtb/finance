@@ -81,7 +81,7 @@ class AlipayTransaction(Transaction):
             elif ("医院" in payee) or ("医院" in item) or ("体检" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="检查治疗", "id"].values[0]
         ### drug        
-            elif ("药" in item) or ("药店" in payee) or ("药房" in payee):
+            elif ("医疗" in item) or ("药" in item) or ("药店" in payee) or ("药房" in payee):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="药品器械", "id"].values[0]
         ### movie
             elif ("电影" in item) or ("观影" in item) or ("演唱会" in item):
@@ -94,8 +94,8 @@ class AlipayTransaction(Transaction):
                 or ("88VIP" in item) or ("吃货卡" in item) or ("会员" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="会员订阅", "id"].values[0]
         ### game
-            elif ("DL点数" in item) or ("Steam" in item) or ("steam" in item) or ("哔哩哔哩会员购" in payee) \
-                or ("起点读书" in payee) or ("阅读" in payee) or ("漫画" in payee)\
+            elif ("DL点数" in item) or ("Steam" in item) or ("steam" in item) or ("发电" in item) or ("哔哩哔哩会员购" in payee) \
+                or ("起点读书" in payee) or ("阅读" in payee) or ("漫画" in payee) or ("集换" in payee)\
                 or ("游戏" in item) or ("烧录卡" in item) or ("文创" in item) or ("扩展通行证" in item) or ("书币" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="玩具游戏", "id"].values[0]
         ### network
@@ -105,7 +105,7 @@ class AlipayTransaction(Transaction):
             elif ("邮寄" in item) or ("运费" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="快递费", "id"].values[0]
         ### travel
-            elif ("携程" in payee) or ("博物馆" in item) or ("旅游" in item) or ("导览" in item):
+            elif ("携程" in payee) or ("博物馆" in item) or ("旅游" in item) or ("导览" in item) or ("酒店" in payee):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="旅游度假", "id"].values[0]
         ### private car fee
             elif ("停车场" in item):
@@ -253,15 +253,19 @@ class AlipayTransaction(Transaction):
                 pass
         
         # transform to account id
-        if source_account_name is not None:
-            source_account_id = accounts_df.loc[accounts_df["name"]==source_account_name, "id"].values[0]
-        else:
+        try:
+            if source_account_name is not None:
+                source_account_id = accounts_df.loc[accounts_df["name"]==source_account_name, "id"].values[0]
+            else:
+                source_account_id = None
+            if target_account_name is not None:
+                target_account_id = accounts_df.loc[accounts_df["name"]==target_account_name, "id"].values[0]
+            else:
+                target_account_id = None
+            
+        except:
             source_account_id = None
-        if target_account_name is not None:
-            target_account_id = accounts_df.loc[accounts_df["name"]==target_account_name, "id"].values[0]
-        else:
             target_account_id = None
-        
         return source_account_id, target_account_id
 
 class AlipayTransactionImporter(TransactionImporter):
