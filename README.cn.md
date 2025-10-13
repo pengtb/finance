@@ -21,14 +21,14 @@
 2. 进入项目目录：`cd finance`
 3. 安装依赖：`pip install -r requirements.txt`
 4. 配置ezBookkeeping API：确保ezBookkeeping已启动并运行，并且已获取[API密钥](http://ezbookkeeping.mayswind.net/httpapi)。
-5. 设置环境变量：`copy .env.example .env`，编辑`.env`文件，填入自己的值，然后`source .env` （Linux or Mac）或 `set -a && source .env && set +a` （Windows）。
+5. 设置环境变量：`copy .env.example .env`，编辑`.env`文件，填入自己的值，然后`set -a && source .env && set +a` （Linux or Mac）。
 6. 列出账户测试：`python src/account_updater.py --action list`
 
 ### 使用Docker
 
 1. 拉取Docker镜像：`docker pull ptbjerry/finance`
 2. 配置ezBookkeeping API：确保ezBookkeeping已启动并运行，并且已获取[API密钥](http://ezbookkeeping.mayswind.net/httpapi)。
-3. 设置环境变量：`copy .env.example .env`，编辑`.env`文件，填入自己的值，然后`source .env` （Linux or Mac）或 `set -a && source .env && set +a` （Windows）。
+3. 设置环境变量：`copy .env.example .env`，编辑`.env`文件，填入自己的值，然后`set -a && source .env && set +a` （Linux or Mac）。
 4. 列出账户测试：`docker run --env-file .env ptbjerry/finance python account_updater.py --action list`
 
 ## 使用：和ezBookkeeping一起Docker Compose
