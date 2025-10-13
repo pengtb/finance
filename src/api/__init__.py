@@ -3,11 +3,18 @@ import json
 import os
 
 API_TOKEN=os.getenv("API_TOKEN")
-X_TIMEZONE_OFFSET=int(os.getenv("X_TIMEZONE_OFFSET")) # GMT+8
+X_TIMEZONE_OFFSET=int(os.getenv("X_TIMEZONE_OFFSET")) if os.getenv("X_TIMEZONE_OFFSET") else 8 # GMT+8
 BASE_URL=os.getenv("BASE_URL")
 
 class BaseAPI:
     def __init__(self):
+        ## get API token
+        if not API_TOKEN:
+            raise ValueError("API_TOKEN is not set")
+        if not BASE_URL:
+            raise ValueError("BASE_URL is not set")
+            
+        ## init session
         self.session = requests.Session()
         self.session.headers.update({
             "Authorization": f"Bearer {API_TOKEN}",
