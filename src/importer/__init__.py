@@ -166,14 +166,14 @@ class AccountImporter:
         strict: only keep those with available values in update_info_df
         """
         # load update info
-        if update_info_fp is not None:
+        if (update_info_fp is not None) and (os.path.exists(update_info_fp)):
             update_info_df = pd.read_table(update_info_fp, usecols=['code', 'value'], dtype={'code': int})
         else:
-            fund_crawler = FundCrawler()
-            update_info_df = fund_crawler.crawl_info(save=False)
-            update_info_df = update_info_df.loc[:, ["code", "value"]]
+            fund_crawler = FundCrawler(save_fp=update_info_fp)
+            update_info_df = fund_crawler.crawl_info(save=update_info_fp is not None)
             update_info_df.loc[:, 'code'] = update_info_df.loc[:, 'code'].astype(int)
-        
+            update_info_df = update_info_df.loc[:, ["code", "value"]]
+
         update_info_df.loc[:, 'code'] = update_info_df.loc[:, 'code'].astype(str)
         if strict: update_info_df = update_info_df.loc[update_info_df.value!='---']
         
@@ -200,7 +200,7 @@ class AccountImporter:
         
         # update balanceTime
         ## modification time of update info file
-        if update_info_fp is not None:
+        if (update_info_fp is not None) and (os.path.exists(update_info_fp)):
             merged.loc[:, 'balanceTime'] = int(os.path.getmtime(update_info_fp))
         else:
             merged.loc[:, 'balanceTime'] = int(time.time())
