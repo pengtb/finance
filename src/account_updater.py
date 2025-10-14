@@ -288,7 +288,7 @@ if __name__ == "__main__":
         # create scheduler
         scheduler = BackgroundScheduler()
         ## add job
-        scheduler.add_job(main, CronTrigger.from_crontab(args.crontab), args=[args])
+        scheduler.add_job(main, CronTrigger.from_crontab(args.crontab, timezone="Asia/Shanghai"), args=[args])
         ## start scheduler
         print(f"Add job: {args.crontab}")
         scheduler.start()
