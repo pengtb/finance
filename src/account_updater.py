@@ -165,9 +165,7 @@ def main(args):
     
     # first list available accounts
     result_df = fetch_accounts(api)
-    result_df = result_df[result_df["comment"]!=""]
-    if "subAccounts" not in result_df.columns:
-        result_df["subAccounts"] = pd.NA
+    result_df = result_df[(result_df["comment"]!="") | (result_df["subAccounts"].notna())]
     
     # fetch email attachments if file is not specified
     if (args.importer != "update-fund") and (args.importer is not None):
@@ -222,14 +220,14 @@ def main(args):
         else:
             tobsolete_accounts_df = existing_accounts_df[~existing_accounts_df['name'].isin([account.name for account in query_accounts])]
             old_parent_accounts_df = result_df[result_df['subAccounts'].notna()]
-            todelete_accounts_df = pd.concat([tobsolete_accounts_df, old_parent_accounts_df], axis=0)
+            todelete_accounts_df = old_parent_accounts_df
             toupdate_accounts = [account for account in query_accounts if account.name in existing_accounts_df['name'].tolist()]
             toadd_accounts = [account for account in query_accounts if account.name not in existing_accounts_df['name'].tolist()]
         
         ## delete accounts
-        delete_accounts(old_parent_accounts_df['id'].tolist(), api, dry_run=args.dry_run)
-        if len(old_parent_accounts_df) > 0: 
-            print(f"Deleted {len(old_parent_accounts_df)} accounts")
+        delete_accounts(todelete_accounts_df['id'].tolist(), api, dry_run=args.dry_run)
+        if len(todelete_accounts_df) > 0: 
+            print(f"Deleted {len(todelete_accounts_df)} accounts")
         orig_balances = tobsolete_accounts_df.loc[:, 'balance'].tolist()
         zero_accounts_balance(tobsolete_accounts_df['id'].tolist(), transaction_api, orig_balances, dry_run=args.dry_run)
         if len(tobsolete_accounts_df) > 0: 

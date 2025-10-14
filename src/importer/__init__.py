@@ -186,7 +186,7 @@ class AccountImporter:
         accounts_df.loc[:, 'amount'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['amount']).astype(float)
         accounts_df.loc[:, 'code'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['code']).astype(str)
         ## previous value
-        accounts_df.loc[:, 'prev_value'] = accounts_df.loc[:, 'balance'] / accounts_df.loc[:, 'amount']
+        accounts_df.loc[:, 'prev_value'] = accounts_df.loc[:, 'balance'] / accounts_df.loc[:, 'amount'] / 100 ### restore to original value
         
         # merge
         update_info_df.loc[:, 'code'] = update_info_df.loc[:, 'code'].astype(str)
@@ -197,7 +197,7 @@ class AccountImporter:
         
         # udpate balance
         merged.loc[:, 'balance'] = (merged.loc[:, 'value'].astype(float) * merged.loc[:, 'amount'].astype(float) * 100).astype(int)
-        
+
         # update balanceTime
         ## modification time of update info file
         if (update_info_fp is not None) and (os.path.exists(update_info_fp)):
