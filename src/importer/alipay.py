@@ -193,7 +193,7 @@ class AlipayTransaction(Transaction):
             subcategory_id = None
         return subcategory_id
     
-    def assign_accountId(self, accounts_df: pd.DataFrame, transaction_description: str, transaction_subcategory: str):
+    def assign_accountId(self, accounts_df: pd.DataFrame, transaction_description: str, transaction_subcategory: str, subcategories_df: pd.DataFrame):
         """
         Assign accountId to transaction by hard coding
         """
@@ -205,50 +205,47 @@ class AlipayTransaction(Transaction):
         # assign by subcategory
         source_account_name = None
         target_account_name = None
-        ## income or expense
-        if transaction_subcategory not in ["银行转账", "信用卡还款", "存款取款", "投资", "赎回",
-                                           "借入", "借出", "还款", "收债", 
-                                           "垫付支出", "报销", "其他转账"]:
-            if ("余利宝转入" in item): ### 余利宝仅支持支付宝余额
-                pass ### 忽略余利宝转入，手动处理/在导入余利宝明细时处理
-            else:
+
+        if transaction_subcategory == "赎回":
+            if "余额宝-转出到余额" in item:
                 source_account_name = "余额宝"
-                target_account_name = None
-        ## investment
+                target_account_name = "支付宝余额"
+            elif "余额宝-转出到银行卡" in item:
+                source_account_name = "余额宝"
+                target_account_name = payee ### like "招商银行"
+            elif "余利宝转出到支付宝" in item:
+                source_account_name = "余利宝"
+                target_account_name = "支付宝余额"
+        elif transaction_subcategory == "投资":
+            if ("余额宝-大额转入" in item) or ("余额宝-单次转入" in item):
+                pass ### 忽略余额宝转入，手动处理/在导入银行账户明细时处理
+            elif "支付宝转入到余利宝" in item:
+                source_account_name = "支付宝余额"
+                target_account_name = "余利宝"
+            elif "余利宝-银行卡转入" in item:
+                pass ### 忽略余利宝银行卡转入，手动处理/在导入余利宝明细时处理
+        elif transaction_subcategory == "信用卡还款":
+            if "自动还款-花呗" in item:
+                source_account_name = "余额宝"
+                target_account_name = "花呗|信用购"
+            elif "先享后付" in item:
+                source_account_name = "余额宝"
+                target_account_name = "饿了么先享后付"
+            elif "白条" in item: ### to check
+                source_account_name = "余额宝"
+                target_account_name = "京东白条"
+            elif "月付" in item:
+                source_account_name = "余额宝"
+                target_account_name = "美团月付"
+            else:
+                pass
+        elif transaction_subcategory in ["投资支出", "投资赎回", "利息分红"]:
+            source_account_name = "余额宝"
+            target_account_name = None
         else:
-            if transaction_subcategory == "赎回":
-                if "余额宝-转出到余额" in item:
-                    source_account_name = "余额宝"
-                    target_account_name = "支付宝余额"
-                elif "余额宝-转出到银行卡" in item:
-                    source_account_name = "余额宝"
-                    target_account_name = payee ### like "招商银行"
-                elif "余利宝转出到支付宝" in item:
-                    source_account_name = "余利宝"
-                    target_account_name = "支付宝余额"
-            elif transaction_subcategory == "投资":
-                if ("余额宝-大额转入" in item) or ("余额宝-单次转入" in item):
-                    pass ### 忽略余额宝转入，手动处理/在导入银行账户明细时处理
-                elif "支付宝转入到余利宝" in item:
-                    source_account_name = "支付宝余额"
-                    target_account_name = "余利宝"
-                elif "余利宝-银行卡转入" in item:
-                    pass ### 忽略余利宝银行卡转入，手动处理/在导入余利宝明细时处理
-            elif transaction_subcategory == "信用卡还款":
-                if "自动还款-花呗" in item:
-                    source_account_name = "余额宝"
-                    target_account_name = "花呗|信用购"
-                elif "先享后付" in item:
-                    source_account_name = "余额宝"
-                    target_account_name = "饿了么先享后付"
-                elif "白条" in item: ### to check
-                    source_account_name = "余额宝"
-                    target_account_name = "京东白条"
-                elif "月付" in item:
-                    source_account_name = "余额宝"
-                    target_account_name = "美团月付"
-                else:
-                    pass
+            if subcategories_df.loc[subcategories_df["name"]==transaction_subcategory, "typeDesc"].values[0] == "支出":
+                source_account_name = "花呗|信用购"
+                target_account_name = None
             else:
                 pass
         
@@ -331,7 +328,7 @@ class AlipayTransactionImporter(TransactionImporter):
             transaction.type = int(self.subcategories.loc[self.subcategories["id"]==transaction.categoryId, "type"].iloc[0])
             ## assign accountId
             transaction_subcategory = self.subcategories.loc[self.subcategories["id"]==transaction.categoryId, "name"].iloc[0]
-            sourceAccountId, destinationAccountId = transaction.assign_accountId(self.accounts, transaction.comment, transaction_subcategory)
+            sourceAccountId, destinationAccountId = transaction.assign_accountId(self.accounts, transaction.comment, transaction_subcategory, self.subcategories)
             if (sourceAccountId is None) and (destinationAccountId is None):
                 ignored_rows.append(row)
                 continue
