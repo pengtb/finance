@@ -34,6 +34,19 @@ category_mapping = {
     "savings": 8,
 }
 
+def bankaccount_mapping(method: str):
+    if "招商银行信用卡(8780)" in method:
+        source_account_name = "招商银行8780"
+    elif "招商银行储蓄卡(2491)" in method:
+        source_account_name = "招商银行2491"
+    elif "农业银行储蓄卡(0679)" in method:
+        source_account_name = "农业银行0679"
+    elif "农业银行储蓄卡(1377)" in method:
+        source_account_name = "农业银行1377"
+    else:
+        return None
+    return source_account_name
+
 class Account:
     name: str
     currency: str = "CNY"
@@ -277,9 +290,10 @@ class Transaction:
                 or ("余利宝转出到支付宝" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="赎回", "id"].values[0]
             elif ("余额宝-单次转入" in item) or ("余额宝-大额转入" in item) \
-                or ("支付宝转入到余利宝" in item) or ("余利宝-银行卡转入" in item):
+                or ("支付宝转入到余利宝" in item) or ("余利宝-银行卡转入" in item) \
+                    or ("京东小金库-转入" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资", "id"].values[0]
-            elif ("自动还款-花呗" in item):
+            elif ("还款-花呗" in item) or ("白条自动还款" in item) or ("白条主动还款" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="信用卡还款", "id"].values[0]
             elif ("网商银行" in payee) or ("余额宝" in payee) or ("蚂蚁财富" in payee) or ("黄金" in payee) or ("保险" in payee):
                 if ("转入" in item) or ("买入" in item) or ("转换" in item):
@@ -295,15 +309,15 @@ class Transaction:
             elif ("肯德基" in payee) or ("麦当劳" in payee) or ("塔斯汀" in payee) or ("德克士" in payee) or ("萨莉亚" in item)\
                 or ("肯德基" in item) or ("麦当劳" in item) or ("塔斯汀" in item) or ("德克士" in item) or ("萨莉亚" in payee)\
                 or ("面" in item) or ("粉" in item) or ("饭" in item) or ("水饺" in item) or ("包子" in item) \
-                    or ("紫光园" in item) or ("眉州东坡" in item)\
-                    or ("麻辣烫" in item) or ("烧" in item) or ("汉堡" in item) or ("塔可" in item) \
-                        or ("排" in item) or ("披萨" in item) or ("海鲜" in item) or ("涮肉" in item) or ("蹄花" in item)\
-                        or ("牛" in item) or ("鸡" in item) or ("鸭" in item) or ("鱼" in item) or ("兔" in item) or ("羊" in item) or ("骨" in item) \
-                    or ("快餐" in item) or ("简餐" in item) or ("酒馆" in item) or ("食品" in payee)\
+                or ("紫光园" in item) or ("眉州东坡" in item)\
+                or ("麻辣烫" in item) or ("烧" in item) or ("汉堡" in item) or ("塔可" in item) \
+                or ("排" in item) or ("披萨" in item) or ("海鲜" in item) or ("涮肉" in item) or ("蹄花" in item)\
+                or ("牛" in item) or ("鸡" in item) or ("鸭" in item) or ("鱼" in item) or ("兔" in item) or ("羊" in item) or ("骨" in item) or ("蟹" in item)\
+                or ("快餐" in item) or ("简餐" in item) or ("酒馆" in item) or ("食品" in payee)\
                 or ("美团" in item) or ("扫码付" in item) \
-                    or ("餐厅" in payee) or ("餐厅" in item) or ("餐馆" in payee) or ("餐馆" in item) \
-                        or ("餐饮" in payee) or ("餐饮" in item) or ("食堂" in payee) or ("食堂" in item) \
-                    or ("经营码交易" in item) or ("orderno" in item) or ("堂食" in item) or ("一卡通" in item) or ("点餐" in item):
+                or ("餐厅" in payee) or ("餐厅" in item) or ("餐馆" in payee) or ("餐馆" in item) \
+                or ("餐饮" in payee) or ("餐饮" in item) or ("食堂" in payee) or ("食堂" in item) \
+                or ("经营码交易" in item) or ("orderno" in item) or ("堂食" in item) or ("一卡通" in item) or ("点餐" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="吃饭", "id"].values[0]
         ### drink & others
             elif ("农夫山泉" in item) or ("luckincoffee" in payee) or ("蜜雪冰城" in payee) \
@@ -318,7 +332,7 @@ class Transaction:
                                 or ("消费" in item) or ("购物" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="饮料水果零食外卖", "id"].values[0]
         ### clothes
-            elif ("衫" in item):
+            elif ("衫" in item) or ("服" in item) or ("衣" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="衣服", "id"].values[0]
         ### public transport
             elif ("互通卡" in item) or ("交运" in item) or ("交通" in item) or ("地铁" in item) or ("公交" in item):
@@ -391,7 +405,9 @@ class Transaction:
             elif ("缴税" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="税费支出", "id"].values[0]
         ### net purchase
-            elif ("拼多多" in payee) or ("电源" in item):
+            elif ("拼多多" in payee) \
+                or ("电源" in item) or ("内存" in item) or ("硬盘" in item) or ("相机" in item)\
+                or ("包" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="家居电子网购", "id"].values[0]
         ### other fees
             elif ("党费" in item) or ("拍照" in item) or ("大学" in item) or ("图片" in item) or ("便民服务" in item) or ("证" in item):
@@ -455,18 +471,12 @@ class Transaction:
         if transaction_typedes in ["支出", "收入"]:
             if "信用购" in method:
                 source_account_name = "花呗|信用购"
-            elif "招商银行信用卡(8780)" in method:
-                source_account_name = "招商银行8780"
-            elif "招商银行储蓄卡(2491)" in method:
-                source_account_name = "招商银行2491"
-            elif "中国农业银行储蓄卡(0679)" in method:
-                source_account_name = "农业银行0679"
-            elif "中国建设银行储蓄卡(1377)" in method:
-                source_account_name = "建设银行1377"
             elif "余额宝" in method:
                 source_account_name = "余额宝"
             elif method == "余额":
                 source_account_name = "支付宝余额"
+            elif ("储蓄卡" in method) or ("信用卡" in method):
+                source_account_name = bankaccount_mapping(method)
             else:
                 pass
         elif transaction_typedes == "转账":
@@ -476,32 +486,33 @@ class Transaction:
                     target_account_name = "支付宝余额"
                 elif "余额宝-转出到银行卡" in item:
                     source_account_name = "余额宝"
-                    if "中国农业银行储蓄卡(0679)" in method:
-                        target_account_name = "农业银行0679"
-                    elif "中国建设银行储蓄卡(1377)" in method:
-                        target_account_name = "农业银行1377"
-                    elif "招商银行储蓄卡(2491)" in method:
-                        target_account_name = "招商银行2491"
+                    target_account_name = bankaccount_mapping(method)
                 elif "余利宝转出到支付宝" in item:
                     source_account_name = "余利宝"
                     target_account_name = "支付宝余额"
             elif transaction_subcategory == "投资":
                 if ("余额宝-大额转入" in item) or ("余额宝-单次转入" in item):
-                    pass ### 忽略余额宝转入，手动处理/在导入银行账户明细时处理
+                    pass ### 因无银行卡来源，忽略余额宝转入，手动处理/在导入银行账户明细时处理
                 elif "支付宝转入到余利宝" in item:
                     source_account_name = "支付宝余额"
                     target_account_name = "余利宝"
                 elif "余利宝-银行卡转入" in item:
                     pass ### 忽略余利宝银行卡转入，手动处理/在导入余利宝明细时处理
+                elif "京东小金库-转入" in item:
+                    source_account_name = bankaccount_mapping(method)
+                    target_account_name = "京东小金库"
             elif transaction_subcategory == "信用卡还款":
-                if "自动还款-花呗" in item:
+                if "还款-花呗" in item:
                     source_account_name = "余额宝"
                     target_account_name = "花呗|信用购"
                 elif "先享后付" in item:
                     source_account_name = "余额宝"
                     target_account_name = "饿了么先享后付"
-                elif "白条" in item: ### to check
-                    source_account_name = "余额宝"
+                elif ("白条自动还款" in item) or ("白条主动还款" in item):
+                    if ("储蓄卡" in method) or ("信用卡" in method):
+                        source_account_name = bankaccount_mapping(method)
+                    else:
+                        source_account_name = method
                     target_account_name = "京东白条"
                 elif "月付" in item:
                     source_account_name = "余额宝"
