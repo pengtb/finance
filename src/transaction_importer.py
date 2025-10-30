@@ -4,6 +4,7 @@
 from api.transaction import Transaction_API
 from importer.alipay import AlipayTransactionImporter, AlipayAppTransactionImporter
 from importer.yulibao import YuLiBaoTransactionImporter
+from importer.wechatpay import WechatpayTransactionImporter
 from importer import TransactionImporter
 import argparse
 import time
@@ -18,7 +19,7 @@ def parse_args(cmdline=None):
         
     # extra options for add
     if args.action == "add":
-        parser.add_argument("--importer", type=str, help="Importer to use", choices=["alipay", "alipay-app", "yulibao"], default="alipay")
+        parser.add_argument("--importer", type=str, help="Importer to use", choices=["alipay", "alipay-app", "yulibao", "wechatpay"], default="alipay")
         parser.add_argument("--file", type=str, help="Path to the input file")
         parser.add_argument("--rest-file", type=str, help="Path to the rest and not imported file", default="../datatables/rest_transactions.tsv")
         parser.add_argument("--save-dir", type=str, help="Path to save account and transaction subcategories", default="../datatables")
@@ -50,6 +51,10 @@ if __name__ == "__main__":
             query_transactions = importer.import_transactions(args.file, args.rest_file)
         elif args.importer == "alipay-app":
             importer = AlipayAppTransactionImporter(args.save_dir)
+            ## create transactions
+            query_transactions = importer.import_transactions(args.file, args.rest_file)
+        elif args.importer == "wechatpay":
+            importer = WechatpayTransactionImporter(args.save_dir)
             ## create transactions
             query_transactions = importer.import_transactions(args.file, args.rest_file)
         elif args.importer == "yulibao":
