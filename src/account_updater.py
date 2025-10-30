@@ -3,6 +3,7 @@
 
 from api.account import Account_API
 from api.transaction import Transaction_API
+from importer import Account
 from importer.eaccount import EAccountImporter
 from importer.alipayfund import AlipayFundImporter
 from importer.updatefund import FundUpdateTransaction, FundZeroTransaction, FundUpdateImporter
@@ -81,7 +82,9 @@ def delete_accounts(account_ids, api, dry_run=False):
             continue
         
 def update_accounts_amount(accounts, account_ids, api, dry_run=False):
-    for account, account_id in tqdm(zip(accounts, account_ids), total=len(accounts)):
+    pair_iterations = zip(accounts, account_ids)
+    pair_iterations = tqdm(pair_iterations, total=len(accounts)) if len(accounts) > 1 else pair_iterations
+    for account, account_id in pair_iterations:
         if dry_run:
             print(f"Update account {account_id} amount by {json.loads(account.comment)["amount"]}")
             continue
@@ -128,14 +131,24 @@ def update_accounts_balance(account_ids, transaction_api, delta_balances, dry_ru
             print(response)
             continue
         
-def zero_accounts_balance(account_ids, transaction_api, orig_balances, dry_run=False):
-    for account_id, orig_balance in tqdm(zip(account_ids, orig_balances), total=len(account_ids)):
+def zero_accounts_balance(accounts, transaction_api, account_api, dry_run=False):
+    for account in tqdm(accounts, total=len(accounts)):
+        account_id = account.id
+        ## zero amount
+        comment_dict = json.loads(account.comment)
+        comment_dict["amount"] = 0
+        account.comment = json.dumps(comment_dict, ensure_ascii=False)
+        ### modify account
+        update_accounts_amount([account], [account_id], account_api, dry_run=dry_run)
+        
+        ## zero balance
         ### init transaction
         transaction = FundZeroTransaction()
         transaction.sourceAccountId = account_id
         ### time
         transaction.time = int(time.time())
-        ### amount
+        ### balance
+        orig_balance = account.balance
         if orig_balance == 0:
             print(f"Account {account_id} balance not changed, skip update")
             continue
@@ -228,8 +241,14 @@ def main(args):
         delete_accounts(todelete_accounts_df['id'].tolist(), api, dry_run=args.dry_run)
         if len(todelete_accounts_df) > 0: 
             print(f"Deleted {len(todelete_accounts_df)} accounts")
-        orig_balances = tobsolete_accounts_df.loc[:, 'balance'].tolist()
-        zero_accounts_balance(tobsolete_accounts_df['id'].tolist(), transaction_api, orig_balances, dry_run=args.dry_run)
+        ## zero balance & amount for obsolete accounts
+        obsolete_accounts = []
+        for _, row in tobsolete_accounts_df.iterrows():
+            row_subset = row[["name", "currency", "balance", "category", "icon", "color", "type", "comment"]].rename({'type':'account_type'})
+            account = Account(**row_subset.to_dict())
+            account.id = row['id']
+            obsolete_accounts.append(account)
+        zero_accounts_balance(obsolete_accounts, transaction_api, api, dry_run=args.dry_run)
         if len(tobsolete_accounts_df) > 0: 
             print(f"Zeroed {len(tobsolete_accounts_df)} accounts")
         ## add accounts

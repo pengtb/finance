@@ -57,6 +57,17 @@ class Account:
     color: str = ""
     account_type: int = 1 # seperate account
     comment: str = ""
+    
+    def __init__(self, name: str = "", currency: str = "CNY", balance: int = 0, balanceTime: int = 0, category: int = 7, icon: str = "800", color: str = "", account_type: int = 1, comment: str = ""):
+        self.name = name
+        self.currency = currency
+        self.balance = balance
+        self.balanceTime = balanceTime
+        self.category = category
+        self.icon = icon
+        self.color = color
+        self.account_type = account_type
+        self.comment = comment
 
     def assign_icon(self, source: str | None = None):
         """
