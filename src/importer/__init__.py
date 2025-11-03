@@ -480,12 +480,15 @@ class Transaction:
         # assign by method
         transaction_typedes = subcategories_df.loc[subcategories_df["name"]==transaction_subcategory, "typeDesc"].values[0]
         if transaction_typedes in ["支出", "收入"]:
+            if not isinstance(method, str): method = ""
             if "信用购" in method:
                 source_account_name = "花呗|信用购"
             elif "余额宝" in method:
                 source_account_name = "余额宝"
             elif method == "余额":
                 source_account_name = "支付宝余额"
+            elif method == "花呗":
+                source_account_name = "花呗"
             elif ("储蓄卡" in method) or ("信用卡" in method):
                 source_account_name = bankaccount_mapping(method)
             else:
