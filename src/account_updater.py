@@ -31,6 +31,7 @@ def parse_args(cmdline=None):
     # extra options for add
     if args.action == "add":
         parser.add_argument("--delete-previous", action='store_true', help="if delete previous accounts with the same importer")
+        parser.add_argument("--not-check-date", action='store_true', help="if not check date when add account")
         args = parser.parse_known_args(cmdline)[0]
     # extra options for list
     elif args.action == "list":
@@ -216,6 +217,14 @@ def main(args):
             print(result_df.loc[:, ['id', 'name', 'balance', 'currency']])
     # add accounts
     elif args.action == "add":
+        ## check date of input file whether within 1 day
+        if not args.not_check_date:
+            current_time = int(time.time())
+            file_create_time = os.path.getctime(args.file)
+            if (current_time - file_create_time) > 24*3600:
+                print(f"File {args.file} is created more than 24 hours ago, exit")
+                exit(1)
+        
         ## check existing accounts
         existing_accounts_df = result_df[result_df['comment']!=""]
         existing_accounts_df = existing_accounts_df[existing_accounts_df['comment'].apply(lambda x: json.loads(x).get('source', None)==args.importer)]
