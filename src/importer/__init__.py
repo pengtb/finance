@@ -43,6 +43,8 @@ def bankaccount_mapping(method: str):
         source_account_name = "农业银行0679"
     elif "农业银行储蓄卡(1377)" in method:
         source_account_name = "农业银行1377"
+    elif "建设银行信用卡(2922)" in method:
+        source_account_name = "建设银行2922"
     else:
         return None
     return source_account_name

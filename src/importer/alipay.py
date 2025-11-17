@@ -135,7 +135,7 @@ class AlipayTransactionImporter(TransactionImporter):
         ## remove white space in column name
         raw_df.columns = raw_df.columns.str.strip()
         ## only success transaction
-        raw_df = raw_df[raw_df["交易状态"].isin(["交易成功", "交易关闭"])].drop(columns=["交易状态"])
+        raw_df = raw_df[raw_df["交易状态"].isin(["交易成功", "交易关闭", "付款成功，基金份额确认中"])].drop(columns=["交易状态"])
         ## rename columns
         raw_df = raw_df.rename(columns={
             "交易创建时间": "time",
@@ -218,7 +218,7 @@ class AlipayAppTransactionImporter(TransactionImporter):
         ## remove white space in column name
         raw_df.columns = raw_df.columns.str.strip()
         ## only success transaction
-        raw_df = raw_df[raw_df["交易状态"].isin(["交易成功", "交易关闭"])].drop(columns=["交易状态"])
+        raw_df = raw_df[raw_df["交易状态"].isin(["交易成功", "交易关闭", "付款成功，基金份额确认中"])].drop(columns=["交易状态"])
         ## rename columns
         raw_df = raw_df.rename(columns={
             "交易时间": "time",
