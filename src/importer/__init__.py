@@ -491,6 +491,8 @@ class Transaction:
                 source_account_name = "支付宝余额"
             elif method == "花呗":
                 source_account_name = "花呗"
+            elif method == "京东白条":
+                source_account_name = "京东白条"
             elif ("储蓄卡" in method) or ("信用卡" in method):
                 source_account_name = bankaccount_mapping(method)
             else:
