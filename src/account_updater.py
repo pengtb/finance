@@ -62,6 +62,7 @@ def fetch_accounts(api):
 
 def add_accounts(accounts, api, dry_run=False):
     for account in tqdm(accounts):
+        time.sleep(2)
         if dry_run:
             print(f"Add account {account.to_dict()}")
             continue
@@ -179,6 +180,8 @@ def main(args):
     
     # first list available accounts
     result_df = fetch_accounts(api)
+    if "subAccounts" not in result_df.columns:
+        result_df["subAccounts"] = None
     result_df = result_df[(result_df["comment"]!="") | (result_df["subAccounts"].notna())]
     
     # fetch email attachments if file is not specified
@@ -203,10 +206,13 @@ def main(args):
         query_accounts = importer.import_accounts(args.file)
     elif args.importer == "alipay":
         importer = AlipayFundImporter()
-        query_accounts = importer.import_accounts(args.file)
+        query_accounts = importer.import_accounts(args.file,
+                                                  list_subaccounts=False)
     elif args.importer == "update-fund":
         importer = FundUpdateImporter()
-        query_accounts = importer.import_accounts(result_df, update_info=args.update_info, update_info_fp=args.update_info_fp)
+        query_accounts = importer.import_accounts(result_df, 
+                                                  update_info=args.update_info, 
+                                                  update_info_fp=args.update_info_fp)
         
     if (args.action == "list"):
         pd.set_option('display.max_columns', None)
