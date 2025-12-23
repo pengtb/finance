@@ -325,7 +325,7 @@ class Transaction:
                 or ("紫光园" in item) or ("眉州东坡" in item)\
                 or ("麻辣烫" in item) or ("烧" in item) or ("汉堡" in item) or ("塔可" in item) \
                 or ("排" in item) or ("披萨" in item) or ("海鲜" in item) or ("涮肉" in item) or ("蹄花" in item)\
-                or ("牛" in item) or ("鸡" in item) or ("鸭" in item) or ("鱼" in item) or ("兔" in item) or ("羊" in item) or ("骨" in item) or ("蟹" in item)\
+                or ("牛" in item) or ("鸡" in item) or ("鸭" in item) or ("鱼" in item) or ("兔" in item) or ("羊" in item) or ("蟹" in item)\
                 or ("快餐" in item) or ("简餐" in item) or ("酒馆" in item) or ("食品" in payee)\
                 or ("美团" in item) or ("扫码付" in item) \
                 or ("餐厅" in payee) or ("餐厅" in item) or ("餐馆" in payee) or ("餐馆" in item) \
@@ -341,14 +341,14 @@ class Transaction:
                         or ("商户" in item) or ("百货" in item) or ("经营部" in item) or ("连锁" in item) or ("零售" in item)\
                         or ("果" in item) or ("果" in payee) or ("优鲜" in item) \
                         or ("咖啡" in item) or ("咖啡" in payee) or ("茶" in item)\
-                            or ("糕点" in item) or ("小吃" in item) or ("零食" in payee) or ("泡芙" in item) or ("桃酥" in item)\
+                            or ("糕点" in item) or ("小吃" in item) or ("零食" in payee) or ("泡芙" in item) or ("桃酥" in item) or ("冰糖葫芦" in item)\
                                 or ("消费" in item) or ("购物" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="饮料水果零食外卖", "id"].values[0]
         ### clothes
             elif ("衫" in item) or ("服" in item) or ("衣" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="衣服", "id"].values[0]
         ### public transport
-            elif ("互通卡" in item) or ("交运" in item) or ("交通" in item) or ("地铁" in item) or ("公交" in item):
+            elif ("单车" in item) in ("互通卡" in item) or ("交运" in item) or ("交通" in item) or ("地铁" in item) or ("公交" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="公共交通", "id"].values[0]
         ### hospital
             elif ("医院" in payee) or ("医院" in item) or ("体检" in item):
