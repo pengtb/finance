@@ -207,7 +207,7 @@ def main(args):
     elif args.importer == "alipay":
         importer = AlipayFundImporter()
         query_accounts = importer.import_accounts(args.file,
-                                                  list_subaccounts=False)
+                                                  list_subaccounts=True)
     elif args.importer == "update-fund":
         importer = FundUpdateImporter()
         query_accounts = importer.import_accounts(result_df, 
