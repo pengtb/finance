@@ -348,7 +348,7 @@ class Transaction:
             elif ("衫" in item) or ("服" in item) or ("衣" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="衣服", "id"].values[0]
         ### public transport
-            elif ("单车" in item) in ("互通卡" in item) or ("交运" in item) or ("交通" in item) or ("地铁" in item) or ("公交" in item):
+            elif ("单车" in item) or ("互通卡" in item) or ("交运" in item) or ("交通" in item) or ("地铁" in item) or ("公交" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="公共交通", "id"].values[0]
         ### hospital
             elif ("医院" in payee) or ("医院" in item) or ("体检" in item):
