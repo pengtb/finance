@@ -418,7 +418,7 @@ class Transaction:
             elif ("缴税" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="税费支出", "id"].values[0]
         ### net purchase
-            elif ("拼多多" in payee) \
+            elif ("拼多多" in payee) or ("京东" in payee) \
                 or ("电源" in item) or ("内存" in item) or ("硬盘" in item) or ("相机" in item)\
                 or ("包" in item):
                 subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="家居电子网购", "id"].values[0]
@@ -489,6 +489,8 @@ class Transaction:
                 source_account_name = "余额宝"
             elif method == "余额":
                 source_account_name = "支付宝余额"
+            elif method == "零钱":
+                source_account_name = "微信零钱"
             elif method == "花呗":
                 source_account_name = "花呗"
             elif method == "京东白条":
