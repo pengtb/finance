@@ -1,0 +1,52 @@
+services:
+  # from mayswind/ezbookkeeping
+  ezbookkeeping:
+    image: docker.xuanyuan.me/mayswind/ezbookkeeping
+    container_name: ezbookkeeping
+    hostname: "ezbookkeeping"
+    ports:
+      - "3001:8080"
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "./storage:/ezbookkeeping/storage" # 请确保 UID:GID 是 1000:1000
+      - "./log:/ezbookkeeping/log" # 请确保 UID:GID 是 1000:1000
+      - "./data:/ezbookkeeping/data"
+      - "./conf/ezbookkeeping.ini:/ezbookkeeping/conf/ezbookkeeping.ini"
+    depends_on:
+      - mysql
+    restart: always
+
+  mysql:
+    image: mysql:8.2
+    container_name: ezbookkeeping_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: konojojo
+      MYSQL_DATABASE: ezbookkeeping
+    volumes:
+      - mysql_data:/var/lib/mysql
+    #ports:
+    #  - "3306:3306"  # If you want to access MySQL from outside Docker, uncomment
+
+  account_updater:
+    image: docker.xuanyuan.me/ptbjerry/finance
+    container_name: account_updater
+    env_file:
+      - .env
+    restart: always
+    volumes:
+      - "./datatables:/app/src/datatables"
+    command: ["python", "account_updater.py", "--action", "update-fund", "--update-info", "--crontab", "${CRON_ACCOUNT_UPDATER}"]
+
+  alipay_account_importer:
+    image: docker.xuanyuan.me/ptbjerry/finance
+    container_name: alipay_account_importer
+    env_file:
+      - .env
+    restart: always
+    volumes:
+      - "./datatables:/app/src/datatables"
+    command: ["python", "account_updater.py", "--action", "add", "--importer", "alipay", "--crontab", "${CRON_ACCOUNT_IMPORTER}"]
+
+volumes:
+  mysql_data:

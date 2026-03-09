@@ -1,0 +1,630 @@
+import pandas as pd
+import os
+import json
+import time
+from api.transaction import Transaction_API
+from api.account import Account_API
+from crawler.fund import FundCrawler
+        
+# account icons
+icon_mapping = {
+    "stocks": "800",
+    "bonds": "520",
+    "gold": "10",
+    "savings": "30",
+    "deposit": "110",
+    "dollar": "1000",
+    "global": "990",
+    "bank": "100",
+    "alipay": "8300"
+}
+
+# account colors
+color_mapping = {
+    "deposit": '4cd964', # green
+    "bonds": 'ffcc00', # yellow
+    "stocks": 'ff3b30', # red
+    "gold": '8e8e93', # grey
+}
+
+# account category
+category_mapping = {
+    "deposit": 9,
+    "investment": 7,
+    "savings": 8,
+}
+
+def bankaccount_mapping(method: str):
+    if "招商银行信用卡(8780)" in method:
+        source_account_name = "招商银行8780"
+    elif "招商银行储蓄卡(2491)" in method:
+        source_account_name = "招商银行2491"
+    elif "农业银行储蓄卡(0679)" in method:
+        source_account_name = "农业银行0679"
+    elif "农业银行储蓄卡(1377)" in method:
+        source_account_name = "农业银行1377"
+    elif "建设银行信用卡(2922)" in method:
+        source_account_name = "建设银行2922"
+    else:
+        return None
+    return source_account_name
+
+class Account:
+    name: str
+    currency: str = "CNY"
+    balance: int = 0
+    balanceTime: int = 0
+    category: int = 7
+    icon: str = "800"
+    color: str = ""
+    account_type: int = 1 # seperate account
+    comment: str = ""
+    
+    def __init__(self, name: str = "", currency: str = "CNY", balance: int = 0, balanceTime: int = 0, category: int = 7, icon: str = "800", color: str = "", account_type: int = 1, comment: str = ""):
+        self.name = name
+        self.currency = currency
+        self.balance = balance
+        self.balanceTime = balanceTime
+        self.category = category
+        self.icon = icon
+        self.color = color
+        self.account_type = account_type
+        self.comment = comment
+
+    def assign_icon(self, source: str | None = None):
+        """
+        Assign icon to account based on fund name and source
+        """
+        # assign icon based on source
+        if source:
+            if "蚂蚁" in source:
+                self.icon = icon_mapping["alipay"]
+            elif "银行" in source:
+                self.icon = icon_mapping["bank"]
+            else:
+                self.icon = icon_mapping["stocks"]
+        else:
+            self.icon = icon_mapping["stocks"]
+            
+        # assign icon based on name
+        if "存款" in self.name:
+            self.icon = icon_mapping["deposit"]
+        elif "货币" in self.name:
+            self.icon = icon_mapping["savings"]
+        elif ("股" in self.name) or ("ETF" in self.name) or ("研究" in self.name) or ("创新" in self.name):
+            self.icon = icon_mapping["stocks"]
+        elif ("债" in self.name) or ("混合" in self.name):
+            self.icon = icon_mapping["bonds"]
+        elif "黄金" in self.name:
+            self.icon = icon_mapping["gold"]
+        if ("美国" in self.name) or ("美元" in self.name):
+            self.icon = icon_mapping["dollar"]
+        elif "全球" in self.name:
+            self.icon = icon_mapping["global"]
+    
+    def assign_color(self):
+        """
+        Assign color to account based on fund name
+        """
+        if ("存款" in self.name) or ("货币" in self.name):
+            self.color = color_mapping["deposit"]
+        elif ("债" in self.name) or ("混合" in self.name):
+            self.color = color_mapping["bonds"]
+        elif "黄金" in self.name:
+            self.color = color_mapping["gold"]
+        else:
+            self.color = color_mapping["stocks"]
+            
+    def assign_category(self):
+        """
+        Assign category to account based on fund name
+        """
+        if "存款" in self.name:
+            self.category = category_mapping["deposit"]
+        elif "货币" in self.name:
+            self.category = category_mapping["savings"]
+        else:
+            self.category = category_mapping["investment"]
+            
+    def to_dict(self):
+        """
+        Convert account to dict
+        """
+        account_dict = {
+            "name": self.name,
+            "currency": self.currency,
+            "balance": self.balance,
+            "balanceTime": self.balanceTime,
+            "category": self.category,
+            "icon": self.icon,
+            "color": self.color,
+            "type": self.account_type,
+            "comment": self.comment,
+        }
+        return account_dict
+    
+class ParentAccount:
+    name: str
+    category: int = 7
+    icon: str = "800"
+    color: str = ""
+    account_type: int = 2 # parent account
+    subAccounts: list[Account] = []
+    currency: str = "---"
+    
+    def to_dict(self):
+        """
+        Convert account to dict
+        """
+        account_dict = {
+            "name": self.name,
+            "category": self.category,
+            "icon": self.icon,
+            "color": self.color,
+            "type": self.account_type,
+            "currency": self.currency,
+            "subAccounts": [subAccount.to_dict() for subAccount in self.subAccounts],
+        }
+        return account_dict
+            
+class AccountImporter:
+    def import_accounts(self, file_path: str):
+        """
+        Import accounts from file & return a list of Account objects
+        """
+        raise NotImplementedError("import_accounts method not implemented")
+    
+    def format_accounts(self, accounts: list[Account]):
+        """
+        Format accounts: assign icon, color, category
+        """
+        formatted = []
+        for account in accounts:
+            account.assign_icon()
+            account.assign_color()
+            account.assign_category()
+            formatted.append(account)
+        return formatted
+    
+    def update_info(self, accounts: list, update_info_fp: str, strict: bool = False):
+        """
+        Update account information using update-info-fp tsv file:
+        strict: only keep those with available values in update_info_df
+        """
+        # load update info
+        if (update_info_fp is not None) and (os.path.exists(update_info_fp)):
+            update_info_df = pd.read_table(update_info_fp, usecols=['code', 'value'], dtype={'code': int})
+        else:
+            fund_crawler = FundCrawler(save_fp=update_info_fp)
+            update_info_df = fund_crawler.crawl_info(save=update_info_fp is not None)
+            update_info_df.loc[:, 'code'] = update_info_df.loc[:, 'code'].astype(int)
+            update_info_df = update_info_df.loc[:, ["code", "value"]]
+
+        update_info_df.loc[:, 'code'] = update_info_df.loc[:, 'code'].astype(str)
+        if strict: update_info_df = update_info_df.loc[update_info_df.value!='---']
+        
+        # preprocess
+        ## only with comment / fund code
+        accounts = [account for account in accounts if account.comment!=""]
+        ## current account df
+        accounts_df = pd.DataFrame([account.to_dict() for account in accounts])
+        ## release json
+        accounts_df.loc[:, 'amount'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['amount']).astype(float)
+        accounts_df.loc[:, 'code'] = accounts_df.loc[:, 'comment'].apply(lambda x: json.loads(x)['code']).astype(str)
+        ## previous value
+        accounts_df.loc[:, 'prev_value'] = accounts_df.loc[:, 'balance'] / accounts_df.loc[:, 'amount'] / 100 ### restore to original value
+        
+        # merge
+        update_info_df.loc[:, 'code'] = update_info_df.loc[:, 'code'].astype(str)
+        merged = pd.merge(accounts_df, update_info_df, on='code', how='inner')
+        
+        # keep previous value if new value is not available
+        merged.loc[:, 'value'] = merged.loc[:, 'value'].where(merged.loc[:, 'value']!='---', merged.loc[:, 'prev_value'])
+        
+        # udpate balance
+        merged.loc[:, 'balance'] = (merged.loc[:, 'value'].astype(float) * merged.loc[:, 'amount'].astype(float) * 100).astype(int)
+
+        # update balanceTime
+        ## modification time of update info file
+        if (update_info_fp is not None) and (os.path.exists(update_info_fp)):
+            merged.loc[:, 'balanceTime'] = int(os.path.getmtime(update_info_fp))
+        else:
+            merged.loc[:, 'balanceTime'] = int(time.time())
+        
+        # create updated accounts
+        toupdate_accounts = [account for account in accounts if account.name in merged['name'].values]
+        updated_accounts = []
+        for account in toupdate_accounts:
+            account.prev_balance = account.balance
+            account.balance = int(merged.loc[merged['name']==account.name, 'balance'].values[0])
+            account.balanceTime = int(merged.loc[merged['name']==account.name, 'balanceTime'].values[0])
+            updated_accounts.append(account)
+        
+        return updated_accounts
+        
+class Transaction:
+    type: int = 2
+    categoryId: int = 0
+    time: int = 0
+    utcOffset: int = 8 * 60 # GMT+8 in min
+    sourceAccountId: str = ""
+    destinationAccountId: str = ""
+    sourceAmount: int = 0
+    destinationAmount: int = 0
+    # tagIds: list[int] = []
+    comment: str = ""
+    # geoLocation: dict = {}
+    
+    def to_dict(self):
+        """
+        Convert transaction to dict
+        """
+        transaction_dict = {
+            "type": self.type,
+            "categoryId": self.categoryId,
+            "time": self.time,
+            "utcOffset": self.utcOffset,
+            "sourceAccountId": self.sourceAccountId,
+            "destinationAccountId": self.destinationAccountId,
+            "sourceAmount": self.sourceAmount,
+            "destinationAmount": self.destinationAmount,
+            # "tagIds": self.tagIds,
+            "comment": self.comment,
+        }
+        if self.type != 4:
+            del transaction_dict["destinationAccountId"]
+            del transaction_dict["destinationAmount"]
+        return transaction_dict
+    
+    def assign_categoryId(self, categoryid_description: str, transaction_description: str):
+        """
+        use keywords & llm to assign categoryId based on given discription dict
+        :param categoryid_description: categoryId description json built from transaction categories list API
+        :param transaction_description: transaction description json imported from file
+        """
+        from mcp_agent.core.fastagent import FastAgent
+        import asyncio
+        
+        # first by keywords
+        ## parse to form json & df
+        categoryid_des_json = json.loads(categoryid_description)
+        categoryid_des_df = pd.DataFrame(categoryid_des_json)
+
+        transaction_des_json = json.loads(transaction_description)
+        payee = transaction_des_json["payee"]
+        item = transaction_des_json["item"]
+        status = transaction_des_json["status"]
+        
+        ## by keywords
+        subcategory_id = None
+        ### investment
+        if status == "资金转移":
+            if ("余额宝-转出到余额" in item) or ("余额宝-转出到银行卡" in item) or ("余额宝-转出到支付宝" in item) \
+                or ("余利宝转出到支付宝" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="赎回", "id"].values[0]
+            elif ("余额宝-单次转入" in item) or ("余额宝-大额转入" in item) \
+                or ("支付宝转入到余利宝" in item) or ("余利宝-银行卡转入" in item) \
+                    or ("京东小金库-转入" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资", "id"].values[0]
+            elif ("还款-花呗" in item) or ("白条自动还款" in item) or ("白条主动还款" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="信用卡还款", "id"].values[0]
+            elif ("网商银行" in payee) or ("余额宝" in payee) or ("蚂蚁财富" in payee) or ("黄金" in payee) or ("保险" in payee):
+                if ("转入" in item) or ("买入" in item) or ("转换" in item):
+                    subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资支出", "id"].values[0]
+                elif ("转出" in item) or ("卖出" in item):
+                    subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资赎回", "id"].values[0]
+            
+        elif status == "已支出":
+        ### investment
+            if ("帮你投" in item) or ("余利宝" in item) or ("蚂蚁财富" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资支出", "id"].values[0]
+        ### food
+            elif ("肯德基" in payee) or ("麦当劳" in payee) or ("塔斯汀" in payee) or ("德克士" in payee) or ("萨莉亚" in item)\
+                or ("肯德基" in item) or ("麦当劳" in item) or ("塔斯汀" in item) or ("德克士" in item) or ("萨莉亚" in payee)\
+                or ("面" in item) or ("粉" in item) or ("饭" in item) or ("水饺" in item) or ("包子" in item) \
+                or ("紫光园" in item) or ("眉州东坡" in item)\
+                or ("麻辣烫" in item) or ("烧" in item) or ("汉堡" in item) or ("塔可" in item) \
+                or ("排" in item) or ("披萨" in item) or ("海鲜" in item) or ("涮肉" in item) or ("蹄花" in item)\
+                or ("牛" in item) or ("鸡" in item) or ("鸭" in item) or ("鱼" in item) or ("兔" in item) or ("羊" in item) or ("蟹" in item)\
+                or ("快餐" in item) or ("简餐" in item) or ("酒馆" in item) or ("食品" in payee)\
+                or ("美团" in item) or ("扫码付" in item) \
+                or ("餐厅" in payee) or ("餐厅" in item) or ("餐馆" in payee) or ("餐馆" in item) \
+                or ("餐饮" in payee) or ("餐饮" in item) or ("食堂" in payee) or ("食堂" in item) \
+                or ("经营码交易" in item) or ("orderno" in item) or ("堂食" in item) or ("一卡通" in item) or ("点餐" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="吃饭", "id"].values[0]
+        ### drink & others
+            elif ("农夫山泉" in item) or ("luckincoffee" in payee) or ("蜜雪冰城" in payee) \
+                or ("CoCo" in item) or ("喜茶" in item) or ("库迪" in payee) or ("书亦烧仙草" in payee)\
+                or ("麦叔" in item) or ("超市发" in item) or ("便利" in item)or ("便利" in payee) or ("多点" in item) or ("多点" in payee) or ("好邻居" in item) \
+                    or ("智能柜" in payee) or ("7-11" in payee) or ("LAWSON" in item) or ("物美" in payee) or ("全家" in item)\
+                    or ("盒马鲜生" in item) or ("外卖" in item) or ("收钱码收款" in item) or ("个体" in item)\
+                        or ("商户" in item) or ("百货" in item) or ("经营部" in item) or ("连锁" in item) or ("零售" in item)\
+                        or ("果" in item) or ("果" in payee) or ("优鲜" in item) \
+                        or ("咖啡" in item) or ("咖啡" in payee) or ("茶" in item)\
+                            or ("糕点" in item) or ("小吃" in item) or ("零食" in payee) or ("泡芙" in item) or ("桃酥" in item) or ("冰糖葫芦" in payee)\
+                                or ("消费" in item) or ("购物" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="饮料水果零食外卖", "id"].values[0]
+        ### clothes
+            elif ("衫" in item) or ("服" in item) or ("衣" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="衣服", "id"].values[0]
+        ### public transport
+            elif ("单车" in item) or ("互通卡" in item) or ("交运" in item) or ("交通" in item) or ("地铁" in item) or ("公交" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="公共交通", "id"].values[0]
+        ### hospital
+            elif ("医院" in payee) or ("医院" in item) or ("体检" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="检查治疗", "id"].values[0]
+        ### drug        
+            elif ("医疗" in item) or ("药" in item) or ("药店" in payee) or ("药房" in payee):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="药品器械", "id"].values[0]
+        ### movie
+            elif ("电影" in item) or ("观影" in item) or ("演唱会" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="电影演出", "id"].values[0]
+        ### taxi
+            elif ("打车" in item) or ("租车" in item) or ("电瓶车" in payee):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="打车租车", "id"].values[0]
+        ### subscription
+            elif ("连续" in item) or ("极速下载" in item) or (item == "PC 1 Month") \
+                or ("88VIP" in item) or ("吃货卡" in item) or ("会员" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="会员订阅", "id"].values[0]
+        ### game
+            elif ("DL点数" in item) or ("Steam" in item) or ("steam" in item) or ("发电" in item) or ("哔哩哔哩会员购" in payee) \
+                or ("起点读书" in payee) or ("阅读" in payee) or ("漫画" in payee) or ("集换" in payee)\
+                or ("游戏" in item) or ("烧录卡" in item) or ("文创" in item) or ("扩展通行证" in item) or ("书币" in item)  or ("充值" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="玩具游戏", "id"].values[0]
+        ### network
+            elif ("流量" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="电话费", "id"].values[0]
+        ### delivery
+            elif ("邮寄" in item) or ("运费" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="快递费", "id"].values[0]
+        ### travel
+            elif ("携程" in payee) or ("博物馆" in item) or ("旅游" in item) or ("导览" in item) or ("酒店" in payee):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="旅游度假", "id"].values[0]
+        ### private car fee
+            elif ("停车场" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="私家车费用", "id"].values[0]
+        ### airplane
+            elif ("机票" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="飞机票", "id"].values[0]
+        ### train
+            elif ("火车票" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="火车票", "id"].values[0]
+        ### phone
+            elif ("话费" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="电话费", "id"].values[0]
+        ### network
+            elif ("网费" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="上网费", "id"].values[0]
+        ### tools
+            elif ("文化用品" in item) or ("文具" in item) or ("办公" in item) \
+                or ("微软授权" in payee) or ("文档订单" in item) \
+                    or ("ai" in payee) or ("人工智能" in payee) or ("云计算" in payee) or ("物联网" in payee) or ("数码" in payee) or ("科大讯飞" in payee)\
+                        or ("邀请码" in item) or ("授权码" in item)\
+                    or ("润雨" in payee) or ("云存储" in item) or ("腾讯云" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="工具软件", "id"].values[0]
+        ### rent
+            elif ("自如" in payee):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="租金贷款", "id"].values[0]
+        ### water, elec, gas
+            elif ("浴卡" in item) or ("燃气" in item) or ("水费" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="水电煤气", "id"].values[0]
+        ### property
+            elif ("物业" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="家政物业", "id"].values[0]
+        ### exam
+            elif ("考试费" in item) or ("测试报名费" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="认证考试", "id"].values[0]
+        ### tax
+            elif ("缴税" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="税费支出", "id"].values[0]
+        ### net purchase
+            elif ("拼多多" in payee) or ("京东" in payee) \
+                or ("电源" in item) or ("内存" in item) or ("硬盘" in item) or ("相机" in item)\
+                or ("包" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="家居电子网购", "id"].values[0]
+        ### other fees
+            elif ("党费" in item) or ("拍照" in item) or ("大学" in item) or ("图片" in item) or ("便民服务" in item) or ("证" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="其他支出", "id"].values[0]
+        ### credit card / service
+            elif ("先享后付" in item) or ("白条" in item) or ("月付" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="信用卡还款", "id"].values[0]
+        elif status == "已收入":
+        ### investment
+            if "卖出至余额宝" in item:
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="投资赎回", "id"].values[0]
+            elif ("收益发放" in item) or ("分红至余额宝" in item):
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="利息分红", "id"].values[0]
+            elif "退款" in item:
+                subcategory_id = categoryid_des_df.loc[categoryid_des_df["name"]=="退款", "id"].values[0]
+        if subcategory_id is not None: 
+            return subcategory_id
+
+        # then by llm
+        if "OPENAI_API_KEY" not in os.environ:
+            return None
+        ## create prompt
+        prompt = f"""
+        交易描述: {transaction_description}
+        交易类别列表: {categoryid_description}
+        请为这笔交易分配一个类别ID（即交易类别列表中的id字段），直接返回该id，不需要解释。形式如123，可直接输入到int()函数。
+        """
+        
+        ## create app & agent
+        fast = FastAgent("transaction", quiet=True)
+        @fast.agent(
+            name="category-assigner",
+            model="openai.gpt-4o-mini.medium",
+            instruction="你是一个交易分类器，根据交易描述和交易类别列表，为交易分配正确的类别ID。"
+        )
+        
+        ## run agent
+        async def run_agent (prompt):
+            async with fast.run() as agent:
+                response = await agent(prompt)
+            return response
+        try:
+            subcategory_id = int(asyncio.run(run_agent(prompt)))
+        except (ValueError, TypeError):
+            subcategory_id = None
+        return subcategory_id
+    
+    def assign_accountId(self, accounts_df: pd.DataFrame, transaction_description: str, transaction_subcategory: str, subcategories_df: pd.DataFrame):
+        """
+        Assign accountId to transaction by hard coding
+        """
+        # parse transaction_description
+        transaction_des_json = json.loads(transaction_description)
+        item = transaction_des_json["item"]
+        method = transaction_des_json["method"]
+        # assign by subcategory
+        source_account_name = None
+        target_account_name = None
+        # assign by method
+        transaction_typedes = subcategories_df.loc[subcategories_df["name"]==transaction_subcategory, "typeDesc"].values[0]
+        if transaction_typedes in ["支出", "收入"]:
+            if not isinstance(method, str): method = ""
+            if "信用购" in method:
+                source_account_name = "花呗|信用购"
+            elif "余额宝" in method:
+                source_account_name = "余额宝"
+            elif method == "余额":
+                source_account_name = "支付宝余额"
+            elif method == "零钱":
+                source_account_name = "微信零钱"
+            elif method == "花呗":
+                source_account_name = "花呗"
+            elif method == "京东白条":
+                source_account_name = "京东白条"
+            elif ("储蓄卡" in method) or ("信用卡" in method):
+                source_account_name = bankaccount_mapping(method)
+            else:
+                pass
+        elif transaction_typedes == "转账":
+            if transaction_subcategory == "赎回":
+                if "余额宝-转出到余额" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = "支付宝余额"
+                elif "余额宝-转出到银行卡" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = bankaccount_mapping(method)
+                elif "余利宝转出到支付宝" in item:
+                    source_account_name = "余利宝"
+                    target_account_name = "支付宝余额"
+            elif transaction_subcategory == "投资":
+                if ("余额宝-大额转入" in item) or ("余额宝-单次转入" in item):
+                    pass ### 因无银行卡来源，忽略余额宝转入，手动处理/在导入银行账户明细时处理
+                elif "支付宝转入到余利宝" in item:
+                    source_account_name = "支付宝余额"
+                    target_account_name = "余利宝"
+                elif "余利宝-银行卡转入" in item:
+                    pass ### 忽略余利宝银行卡转入，手动处理/在导入余利宝明细时处理
+                elif "京东小金库-转入" in item:
+                    source_account_name = bankaccount_mapping(method)
+                    target_account_name = "京东小金库"
+            elif transaction_subcategory == "信用卡还款":
+                if "还款-花呗" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = "花呗|信用购"
+                elif "先享后付" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = "饿了么先享后付"
+                elif ("白条自动还款" in item) or ("白条主动还款" in item):
+                    if ("储蓄卡" in method) or ("信用卡" in method):
+                        source_account_name = bankaccount_mapping(method)
+                    else:
+                        source_account_name = method
+                    target_account_name = "京东白条"
+                elif "月付" in item:
+                    source_account_name = "余额宝"
+                    target_account_name = "美团月付"
+                else:
+                    pass
+        
+        # transform to account id
+        try:
+            if source_account_name is not None:
+                source_account_id = accounts_df.loc[accounts_df["name"]==source_account_name, "id"].values[0]
+            else:
+                source_account_id = None
+            if target_account_name is not None:
+                target_account_id = accounts_df.loc[accounts_df["name"]==target_account_name, "id"].values[0]
+            else:
+                target_account_id = None
+            
+        except:
+            source_account_id = None
+            target_account_id = None
+        return source_account_id, target_account_id
+
+class TransactionImporter:
+    def __init__(self, save_dir: str | None = None):
+        # collect categories & accounts
+        self.subcategories = TransactionImporter.collect_categories() # id, name, parentId, parentName
+        self.accounts = TransactionImporter.collect_accounts() # id, name
+        
+        # save
+        if save_dir is not None:
+            os.makedirs(save_dir, exist_ok=True)
+            self.subcategories.to_csv(os.path.join(save_dir, "transaction_subcategories.tsv"), sep='\t', index=False)
+            self.accounts.to_csv(os.path.join(save_dir, "accounts.tsv"), sep='\t', index=False)
+    
+    def import_transactions(self, file_path: str):
+        """
+        Import transactions from file & return a list of Transaction objects
+        """
+        raise NotImplementedError("import_transactions method not implemented")
+    
+    @staticmethod
+    def collect_categories():
+        # collect categoryids info
+        ## collect current categoryids
+        api = Transaction_API()
+        response = api.list_transaction_categories()
+        ## flatten categoryids
+        categories = response["result"]
+        incomes = categories["1"]
+        expenses = categories["2"]
+        transfers = categories["3"]
+        subcategories = [category["subCategories"] for category in incomes + expenses + transfers]
+        subcategories = [subcategory for subcategory_list in subcategories for subcategory in subcategory_list]
+        ## only id & name (& parentId)
+        subcategories = [{
+            "id": subcategory["id"],
+            "name": subcategory["name"],
+            "parentId": subcategory["parentId"]
+        } for subcategory in subcategories]
+        incomes = [{
+            "parentId": category["id"],
+            "parentName": category["name"],
+            "type": 2,
+            "typeDesc": "收入",
+        } for category in incomes]
+        expenses = [{
+            "parentId": category["id"],
+            "parentName": category["name"],
+            "type": 3,
+            "typeDesc": "支出",
+        } for category in expenses]
+        transfers = [{
+            "parentId": category["id"],
+            "parentName": category["name"],
+            "type": 4,
+            "typeDesc": "转账",
+        } for category in transfers]
+        ## merge using pandas df
+        subcategories_df = pd.DataFrame(subcategories)
+        categories_df = pd.DataFrame(incomes + expenses + transfers)
+        merged_df = pd.merge(subcategories_df, 
+                             categories_df, 
+                             on='parentId', how='inner').reset_index(drop=True)
+        return merged_df
+    
+    @staticmethod
+    def collect_accounts():
+        # collect accounts info
+        ## collect current accounts
+        api = Account_API()
+        response = api.list_accounts()
+        accounts = response["result"]
+        accounts_df = pd.DataFrame(accounts).loc[:, ['id', 'name']].reset_index(drop=True)
+        return accounts_df
