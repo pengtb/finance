@@ -228,6 +228,8 @@ def main(args):
             current_time = int(time.time())
             file_create_time = os.path.getctime(args.file)
             if (current_time - file_create_time) > 24*3600:
+                print("Current time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(current_time)))
+                print("File create time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(file_create_time)))
                 print(f"File {args.file} is created more than 24 hours ago, exit")
                 exit(1)
         
