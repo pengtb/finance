@@ -335,7 +335,7 @@ class Transaction:
         ### drink & others
             elif ("农夫山泉" in item) or ("luckincoffee" in payee) or ("蜜雪冰城" in payee) \
                 or ("CoCo" in item) or ("喜茶" in item) or ("库迪" in payee) or ("书亦烧仙草" in payee)\
-                or ("麦叔" in item) or ("超市发" in item) or ("便利" in item)or ("便利" in payee) or ("多点" in item) or ("多点" in payee) or ("好邻居" in item) \
+                or ("麦叔" in item) or ("超市发" in item) or ("便利" in item)or ("便利" in payee) or ("多点" in item) or ("多点" in payee) or ("好邻居" in item) or ("物美" in item) \
                     or ("智能柜" in payee) or ("7-11" in payee) or ("LAWSON" in item) or ("物美" in payee) or ("全家" in item)\
                     or ("盒马鲜生" in item) or ("外卖" in item) or ("收钱码收款" in item) or ("个体" in item)\
                         or ("商户" in item) or ("百货" in item) or ("经营部" in item) or ("连锁" in item) or ("零售" in item)\
