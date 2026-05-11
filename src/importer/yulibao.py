@@ -104,7 +104,7 @@ class YuLiBaoTransactionImporter(TransactionImporter):
         ## convert time to timestamp
         raw_df["time"] = raw_df["time"].apply(lambda x: time.mktime(time.strptime(x, "%Y-%m-%d %H:%M:%S"))).astype(int)
         ## format amount
-        raw_df["amount"] = abs(raw_df["amount"].astype(float)*100).astype(int)
+        raw_df["amount"] = abs(raw_df["amount"].astype(float)*100).round().astype(int)
         
         # init transactions
         ## init categoryids

@@ -37,7 +37,7 @@ class AlipayFundImporter(AccountImporter):
         raw_df["name"] = raw_df["name"].str.replace("\n", "")
         raw_df["code"] = raw_df["code"].astype(int)
         raw_df["amount"] = raw_df["amount"].astype(float)
-        raw_df["balance"] = (raw_df["balance"].astype(float)*100).astype(int)
+        raw_df["balance"] = (raw_df["balance"].astype(float)*100).round().astype(int)
         raw_df["balanceTime"] = raw_df["balanceTime"].apply(lambda x: time.mktime(time.strptime(x, "%Y%m%d"))).astype(int)
         ## add columns: currency, source
         raw_df["currency"] = "CNY"

@@ -149,8 +149,8 @@ class AlipayTransactionImporter(TransactionImporter):
         raw_df = raw_df[raw_df["time"]!=""]
         raw_df["time"] = raw_df["time"].apply(lambda x: time.mktime(time.strptime(x, "%Y-%m-%d %H:%M:%S"))).astype(int)
         ## format amount & refund
-        raw_df["amount"] = (raw_df["amount"].astype(float)*100).astype(int)
-        raw_df["refund"] = (raw_df["refund"].astype(float)*100).astype(int)
+        raw_df["amount"] = (raw_df["amount"].astype(float)*100).round().astype(int)
+        raw_df["refund"] = (raw_df["refund"].astype(float)*100).round().astype(int)
         
         # init transactions
         ## init categoryids
@@ -218,7 +218,7 @@ class AlipayAppTransactionImporter(TransactionImporter):
         ## remove white space in column name
         raw_df.columns = raw_df.columns.str.strip()
         ## only success transaction
-        raw_df = raw_df[raw_df["交易状态"].isin(["交易成功", "交易关闭", "付款成功，基金份额确认中"])].drop(columns=["交易状态"])
+        raw_df = raw_df[raw_df["交易状态"].isin(["交易成功", "付款成功，基金份额确认中", "等待确认收货"])].drop(columns=["交易状态"])
         ## rename columns
         raw_df = raw_df.rename(columns={
             "交易时间": "time",
@@ -233,7 +233,7 @@ class AlipayAppTransactionImporter(TransactionImporter):
         raw_df = raw_df[raw_df["time"]!=""]
         raw_df["time"] = raw_df["time"].apply(lambda x: time.mktime(time.strptime(x, "%Y-%m-%d %H:%M:%S"))).astype(int)
         ## format amount
-        raw_df["amount"] = (raw_df["amount"].astype(float)*100).astype(int)
+        raw_df["amount"] = (raw_df["amount"].astype(float)*100).round().astype(int)
         
         # init transactions
         ## init categoryids

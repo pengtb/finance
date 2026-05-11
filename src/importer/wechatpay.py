@@ -33,8 +33,8 @@ class WechatpayTransactionImporter(TransactionImporter):
             Import transactions from file & return a list of Transaction objects
             """
             # read table from csv
-            raw_df = pd.read_excel(file_path, skiprows=16, sheet_name="Sheet1",
-                                usecols=[0,1,2,3,4,5,6,7]
+            raw_df = pd.read_excel(file_path, skiprows=17, sheet_name="Sheet1",
+                                usecols=[0,1,2,3,4,5,6,7], dtype=str
                                 #  usecols=["交易时间", "交易类型", "交易对方", "商品", 
                                 #           "收/支", "金额(元)", "支付方式", "当前状态"]
                                 )
@@ -60,7 +60,7 @@ class WechatpayTransactionImporter(TransactionImporter):
             raw_df = raw_df[raw_df["time"]!=""]
             raw_df["time"] = raw_df["time"].apply(lambda x: time.mktime(time.strptime(x, "%Y-%m-%d %H:%M:%S"))).astype(int)
             ## format amount: ¥8.00
-            raw_df["amount"] = (raw_df["amount"].apply(lambda x: x.replace("¥", "")).astype(float)*100).astype(int)
+            raw_df["amount"] = (raw_df["amount"].apply(lambda x: x.replace("¥", "")).astype(float)*100).round().astype(int)
             
             # init transactions
             ## init categoryids
